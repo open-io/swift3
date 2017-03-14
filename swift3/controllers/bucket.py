@@ -14,6 +14,8 @@
 # limitations under the License.
 
 import sys
+from base64 import standard_b64encode as b64encode
+from base64 import standard_b64decode as b64decode
 
 from swift.common.http import HTTP_OK
 from swift.common.utils import json, public
@@ -115,6 +117,18 @@ class BucketController(Controller):
         if 'delimiter' in req.params:
             query.update({'delimiter': req.params['delimiter']})
 
+        # GET Bucket (List Objects) Version 2 parameters
+        is_v2 = int(req.params.get('list-type', '1')) == 2
+        if is_v2:
+            if 'start-after' in req.params:
+                query.update({'marker': req.params['start-after']})
+            # continuation-token overrides start-after
+            if 'continuation-token' in req.params:
+                decoded = b64decode(req.params['continuation-token'])
+                query.update({'marker': decoded})
+            if 'fetch-owner' in req.params:
+                pass  # TODO: to be implemented
+
         resp = req.get_response(self.app, query=query)
 
         objects = json.loads(resp.body)
@@ -129,6 +143,7 @@ class BucketController(Controller):
         is_truncated = max_keys > 0 and len(objects) > max_keys
         objects = objects[:max_keys]
 
+        # TODO: do not set NextMarker if is_v2
         if is_truncated and 'delimiter' in req.params:
             if 'name' in objects[-1]:
                 SubElement(elem, 'NextMarker').text = \
@@ -147,6 +162,18 @@ class BucketController(Controller):
 
         SubElement(elem, 'IsTruncated').text = \
             'true' if is_truncated else 'false'
+
+        if is_v2:
+            if is_truncated:
+                SubElement(elem, 'NextContinuationToken').text = \
+                    b64encode(objects[-1]['name'])
+            if 'continuation-token' in req.params:
+                SubElement(elem, 'ContinuationToken').text = \
+                    req.params['continuation-token']
+            if 'start-after' in req.params:
+                SubElement(elem, 'StartAfter').text = \
+                    req.params['start-after']
+            SubElement(elem, 'KeyCount').text = str(len(objects))
 
         for o in objects:
             if 'subdir' not in o:
