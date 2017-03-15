@@ -27,7 +27,7 @@ from swift3.response import HTTPOk, S3NotImplemented, InvalidArgument, \
     MalformedXML, InvalidLocationConstraint, NoSuchBucket, \
     BucketNotEmpty, InternalError, ServiceUnavailable, NoSuchKey
 from swift3.cfg import CONF
-from swift3.utils import LOGGER, MULTIUPLOAD_SUFFIX
+from swift3.utils import LOGGER, MULTIUPLOAD_SUFFIX, extract_s3_etag
 
 MAX_PUT_BUCKET_BODY_SIZE = 10240
 
@@ -181,6 +181,8 @@ class BucketController(Controller):
                 SubElement(contents, 'Key').text = o['name']
                 SubElement(contents, 'LastModified').text = \
                     o['last_modified'][:-3] + 'Z'
+                if 's3_etag' in o.get('content_type', ''):
+                    _, o['hash'] = extract_s3_etag(o['content_type'])
                 SubElement(contents, 'ETag').text = '"%s"' % o['hash']
                 SubElement(contents, 'Size').text = str(o['bytes'])
                 owner = SubElement(contents, 'Owner')

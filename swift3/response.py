@@ -20,7 +20,7 @@ from functools import partial
 from swift.common import swob
 from swift.common.utils import config_true_value
 
-from swift3.utils import snake_to_camel, sysmeta_prefix
+from swift3.utils import snake_to_camel, sysmeta_prefix, extract_s3_etag
 from swift3.etree import Element, SubElement, tostring
 
 
@@ -118,14 +118,18 @@ class Response(ResponseBase, swob.Response):
         if self.is_slo and 'etag' in headers:
             # Multipart uploads in AWS have ETags like
             #   <MD5(part_etag1 || ... || part_etagN)>-<number of parts>
-            # Many AWS clients use the presence of a '-' to decide whether
-            # to attempt client-side download validation, so tack on a '-N'.
-            # ('N' because we don't actually know how many parts there are.)
-
-            # FIXME: Consider storing the AWS-style etag in ... content type?
-            # Wherever it ends up, it needs to be accessible during container
-            # listings
-            headers['etag'] += '-N'
+            if '-' not in headers['etag']:
+                if 's3_etag' in headers.get('content-type', ''):
+                    # ETag was computed at upload, and saved in content-type
+                    ctype, s3_etag = extract_s3_etag(headers['content-type'])
+                    headers['etag'] = s3_etag
+                    headers['content-type'] = ctype
+                else:
+                    # Many AWS clients use the presence of a '-' to decide
+                    # whether to attempt client-side download validation,
+                    # so tack on a '-N' ('N' because we don't actually know
+                    # how many parts there are).
+                    headers['etag'] += '-N'
 
         self.headers = headers
 

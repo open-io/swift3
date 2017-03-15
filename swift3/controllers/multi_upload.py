@@ -46,6 +46,9 @@ import os
 import re
 import sys
 
+from hashlib import md5
+from binascii import unhexlify
+
 from swift.common.swob import Range
 from swift.common.utils import json, public
 from swift.common.db import utf8encode
@@ -526,6 +529,12 @@ class UploadController(Controller):
                           'etag': o['hash'],
                           'size_bytes': o['bytes']}) for o in objinfo)
 
+        etag_hash = md5()
+        for obj in objinfo:
+            etag_hash.update(unhexlify(obj['hash']))
+        s3_etag = "%s-%d" % (etag_hash.hexdigest(), len(objinfo))
+        headers['Content-Type'] += ";s3_etag=%s" % s3_etag
+
         manifest = []
         previous_number = 0
         try:
@@ -638,7 +647,7 @@ class UploadController(Controller):
         SubElement(result_elem, 'Location').text = host_url + req.path
         SubElement(result_elem, 'Bucket').text = req.container_name
         SubElement(result_elem, 'Key').text = req.object_name
-        SubElement(result_elem, 'ETag').text = '"%s-N"' % resp.etag
+        SubElement(result_elem, 'ETag').text = s3_etag
         del resp.headers['ETag']
 
         resp.body = tostring(result_elem)

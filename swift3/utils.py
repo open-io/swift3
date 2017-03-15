@@ -22,7 +22,7 @@ import time
 from urllib import unquote
 import uuid
 
-from swift.common.utils import get_logger
+from swift.common.utils import get_logger, parse_content_type
 
 # Need for check_path_header
 from swift.common import utils
@@ -206,3 +206,22 @@ def mktime(timestamp_str, time_format='%Y-%m-%dT%H:%M:%S'):
     epoch_time = calendar.timegm(time_tuple) - time_tuple[9]
 
     return epoch_time
+
+
+def extract_s3_etag(content_type):
+    """
+    Parse a content-type and return a tuple containing:
+       - the content_type string minus any swift_bytes param,
+       - the s3_etag value or None if the param was not found
+
+    :param content_type: a content-type string
+    :return: a tuple of (content-type, s3_etag or None)
+    """
+    content_type, params = parse_content_type(content_type)
+    s3_etag = None
+    for key, value in params:
+        if key == 's3_etag':
+            s3_etag = value
+        else:
+            content_type += ';%s=%s' % (key, value)
+    return content_type, s3_etag
