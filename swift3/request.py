@@ -465,14 +465,18 @@ class Request(swob.Request):
         self.bucket_in_host = self._parse_host()
         self.container_name, self.object_name = self._parse_uri()
         self._validate_headers()
-        # Lock in string-to-sign now, before we start messing with query params
-        self.string_to_sign = self._string_to_sign()
-        self.environ['swift3.auth_details'] = {
-            'access_key': self.access_key,
-            'signature': self.signature,
-            'string_to_sign': self.string_to_sign,
-            'check_signature': self.check_signature,
-        }
+        if not self._is_anonymous:
+            # Lock in string-to-sign now, before we start messing
+            # with query params
+            self.string_to_sign = self._string_to_sign()
+            self.environ['swift3.auth_details'] = {
+                'access_key': self.access_key,
+                'signature': self.signature,
+                'string_to_sign': self.string_to_sign,
+                'check_signature': self.check_signature,
+            }
+        else:
+            self.string_to_sign = None
         self.token = None
         self.account = None
         self.user_id = None
@@ -539,6 +543,12 @@ class Request(swob.Request):
     def _is_query_auth(self):
         return 'AWSAccessKeyId' in self.params
 
+    @property
+    def _is_anonymous(self):
+        return (self._is_query_auth and
+                'Signature' not in self.params and
+                'Expires' not in self.params)
+
     def _parse_host(self):
         storage_domain = CONF.storage_domain
         if not storage_domain:
@@ -589,12 +599,11 @@ class Request(swob.Request):
         """
         try:
             access = self.params['AWSAccessKeyId']
-            expires = self.params['Expires']
-            sig = self.params['Signature']
+            sig = self.params.get('Signature')
         except KeyError:
             raise AccessDenied()
 
-        if not all([access, sig, expires]):
+        if not access or not sig and sig is not None:
             raise AccessDenied()
 
         return access, sig
@@ -654,7 +663,8 @@ class Request(swob.Request):
         :raises: RequestTimeTooSkewed
         """
         if self._is_query_auth:
-            self._validate_expire_param()
+            if not self._is_anonymous:
+                self._validate_expire_param()
             # TODO: make sure the case if timestamp param in query
             return
 
@@ -1239,6 +1249,10 @@ class Request(swob.Request):
         sw_req = self.to_swift_req(method, container, obj, headers=headers,
                                    body=body, query=query)
 
+        if self._is_anonymous and method == 'HEAD':
+            # Allow anonymous HEAD requests to read object ACLs
+            sw_req.environ['swift.authorize_override'] = True
+
         sw_resp = sw_req.get_response(app)
 
         # reuse account and tokens
@@ -1372,7 +1386,8 @@ class S3AclRequest(Request):
     """
     def __init__(self, env, app, slo_enabled=True):
         super(S3AclRequest, self).__init__(env, slo_enabled)
-        self.authenticate(app)
+        if not self._is_anonymous:
+            self.authenticate(app)
 
     @property
     def controller(self):
