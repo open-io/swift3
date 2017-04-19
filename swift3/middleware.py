@@ -65,6 +65,7 @@ from swift3.exception import NotS3Request
 from swift3.request import get_request_class
 from swift3.response import ErrorResponse, InternalError, MethodNotAllowed, \
     ResponseBase
+from swift3.bucket_db import BucketDb
 from swift3.cfg import CONF
 from swift3.utils import LOGGER
 
@@ -107,9 +108,11 @@ class Swift3Middleware(object):
         self.s3_app = MissingDeleteOk(app)
         self.slo_enabled = conf['allow_multipart_uploads']
         self.check_pipeline(conf)
+        self.bucket_db = BucketDb()
 
     def __call__(self, env, start_response):
         try:
+            env['swift3.bucket_db'] = self.bucket_db
             req_class = get_request_class(env)
             req = req_class(env, self.app, self.slo_enabled)
             resp = self.handle_request(req)
