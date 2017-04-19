@@ -600,11 +600,12 @@ class Request(swob.Request):
         """
         try:
             access = self.params['AWSAccessKeyId']
-            sig = self.params.get('Signature')
+            expires = self.params['Expires']
+            sig = self.params['Signature']
         except KeyError:
             raise AccessDenied()
 
-        if not access or not sig and sig is not None:
+        if not all([access, sig, expires]):
             raise AccessDenied()
 
         return access, sig
@@ -633,7 +634,7 @@ class Request(swob.Request):
             return self._parse_query_authentication()
         elif self._is_header_auth:
             return self._parse_header_authentication()
-        elif self._parse_host():
+        elif self._parse_host() and self.bucket_db:
             # Anonymous request, we will have to resolve account name
             # from bucket name.
             return None, None
@@ -1001,6 +1002,10 @@ class Request(swob.Request):
     def is_authenticated(self):
         return self.account is not None
 
+    @property
+    def bucket_db(self):
+        return self.environ.get('swift3.bucket_db')
+
     def to_swift_req(self, method, container, obj, query=None,
                      body=None, headers=None):
         """
@@ -1008,8 +1013,8 @@ class Request(swob.Request):
         """
         env = self.environ.copy()
 
-        if container:
-            ct_owner = env['swift3.bucket_db'].get_owner(container)
+        if container and self.bucket_db:
+            ct_owner = self.bucket_db.get_owner(container)
             account = ct_owner if ct_owner else None
         else:
             account = None
@@ -1263,9 +1268,15 @@ class Request(swob.Request):
         sw_req = self.to_swift_req(method, container, obj, headers=headers,
                                    body=body, query=query)
 
-        if self._is_anonymous and method == 'HEAD':
-            # Allow anonymous HEAD requests to read object ACLs
-            sw_req.environ['swift.authorize_override'] = True
+        if self.bucket_db:
+            if self._is_anonymous and method == 'HEAD':
+                # Allow anonymous HEAD requests to read object ACLs
+                sw_req.environ['swift.authorize_override'] = True
+            elif method == 'PUT' and container and not obj:
+                # We are about to create a container, reserve its name
+                can_create = self.bucket_db.reserve(container, self.account)
+                if not can_create:
+                    raise BucketAlreadyExists(container)
 
         sw_resp = sw_req.get_response(app)
 
@@ -1293,13 +1304,18 @@ class Request(swob.Request):
                                               sw_req.environ, app)
 
         if status in success_codes:
-            if container and not obj:
+            if self.bucket_db and container and not obj:
                 if method == 'PUT':
-                    self.environ['swift3.bucket_db'].set_owner(container,
-                                                               self.account)
+                    # Container creation succeeded, confirm reservation
+                    self.bucket_db.set_owner(container, self.account)
                 elif method == 'DELETE':
-                    self.environ['swift3.bucket_db'].release(container)
+                    # Container deletion succeeded, reset owner
+                    self.bucket_db.release(container)
             return resp
+
+        if self.bucket_db and method == 'PUT':
+            # Container creation failed, remove reservation
+            self.bucket_db.release(container, self.account)
 
         err_msg = resp.body
 
