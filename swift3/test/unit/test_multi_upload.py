@@ -37,31 +37,31 @@ from swift3.request import MAX_32BIT_INT
 xml = '<CompleteMultipartUpload>' \
     '<Part>' \
     '<PartNumber>1</PartNumber>' \
-    '<ETag>HASH</ETag>' \
+    '<ETag>0000</ETag>' \
     '</Part>' \
     '<Part>' \
     '<PartNumber>2</PartNumber>' \
-    '<ETag>"HASH"</ETag>' \
+    '<ETag>"0000"</ETag>' \
     '</Part>' \
     '</CompleteMultipartUpload>'
 
 objects_template = \
-    (('object/X/1', '2014-05-07T19:47:51.592270', 'HASH', 100),
-     ('object/X/2', '2014-05-07T19:47:52.592270', 'HASH', 200))
+    (('object/X/1', '2014-05-07T19:47:51.592270', '0000', 100),
+     ('object/X/2', '2014-05-07T19:47:52.592270', '0000', 200))
 
 multiparts_template = \
-    (('object/X', '2014-05-07T19:47:50.592270', 'HASH', 1),
-     ('object/X/1', '2014-05-07T19:47:51.592270', 'HASH', 11),
-     ('object/X/2', '2014-05-07T19:47:52.592270', 'HASH', 21),
-     ('object/Y', '2014-05-07T19:47:53.592270', 'HASH', 2),
-     ('object/Y/1', '2014-05-07T19:47:54.592270', 'HASH', 12),
-     ('object/Y/2', '2014-05-07T19:47:55.592270', 'HASH', 22),
-     ('object/Z', '2014-05-07T19:47:56.592270', 'HASH', 3),
-     ('object/Z/1', '2014-05-07T19:47:57.592270', 'HASH', 13),
-     ('object/Z/2', '2014-05-07T19:47:58.592270', 'HASH', 23),
-     ('subdir/object/Z', '2014-05-07T19:47:58.592270', 'HASH', 4),
-     ('subdir/object/Z/1', '2014-05-07T19:47:58.592270', 'HASH', 41),
-     ('subdir/object/Z/2', '2014-05-07T19:47:58.592270', 'HASH', 41))
+    (('object/X', '2014-05-07T19:47:50.592270', '0000', 1),
+     ('object/X/1', '2014-05-07T19:47:51.592270', '0000', 11),
+     ('object/X/2', '2014-05-07T19:47:52.592270', '0000', 21),
+     ('object/Y', '2014-05-07T19:47:53.592270', '0000', 2),
+     ('object/Y/1', '2014-05-07T19:47:54.592270', '0000', 12),
+     ('object/Y/2', '2014-05-07T19:47:55.592270', '0000', 22),
+     ('object/Z', '2014-05-07T19:47:56.592270', '0000', 3),
+     ('object/Z/1', '2014-05-07T19:47:57.592270', '0000', 13),
+     ('object/Z/2', '2014-05-07T19:47:58.592270', '0000', 23),
+     ('subdir/object/Z', '2014-05-07T19:47:58.592270', '0000', 4),
+     ('subdir/object/Z/1', '2014-05-07T19:47:58.592270', '0000', 41),
+     ('subdir/object/Z/2', '2014-05-07T19:47:58.592270', '0000', 41))
 
 
 class TestSwift3MultiUpload(Swift3TestCase):
@@ -316,9 +316,9 @@ class TestSwift3MultiUpload(Swift3TestCase):
     def test_bucket_multipart_uploads_GET_with_id_and_key_marker(self):
         query = 'upload-id-marker=Y&key-marker=object'
         multiparts = \
-            (('object/Y', '2014-05-07T19:47:53.592270', 'HASH', 2),
-             ('object/Y/1', '2014-05-07T19:47:54.592270', 'HASH', 12),
-             ('object/Y/2', '2014-05-07T19:47:55.592270', 'HASH', 22))
+            (('object/Y', '2014-05-07T19:47:53.592270', '0000', 2),
+             ('object/Y/1', '2014-05-07T19:47:54.592270', '0000', 12),
+             ('object/Y/2', '2014-05-07T19:47:55.592270', '0000', 22))
 
         status, headers, body = \
             self._test_bucket_multipart_uploads_GET(query, multiparts)
@@ -347,12 +347,12 @@ class TestSwift3MultiUpload(Swift3TestCase):
     def test_bucket_multipart_uploads_GET_with_key_marker(self):
         query = 'key-marker=object'
         multiparts = \
-            (('object/X', '2014-05-07T19:47:50.592270', 'HASH', 1),
-             ('object/X/1', '2014-05-07T19:47:51.592270', 'HASH', 11),
-             ('object/X/2', '2014-05-07T19:47:52.592270', 'HASH', 21),
-             ('object/Y', '2014-05-07T19:47:53.592270', 'HASH', 2),
-             ('object/Y/1', '2014-05-07T19:47:54.592270', 'HASH', 12),
-             ('object/Y/2', '2014-05-07T19:47:55.592270', 'HASH', 22))
+            (('object/X', '2014-05-07T19:47:50.592270', '0000', 1),
+             ('object/X/1', '2014-05-07T19:47:51.592270', '0000', 11),
+             ('object/X/2', '2014-05-07T19:47:52.592270', '0000', 21),
+             ('object/Y', '2014-05-07T19:47:53.592270', '0000', 2),
+             ('object/Y/1', '2014-05-07T19:47:54.592270', '0000', 12),
+             ('object/Y/2', '2014-05-07T19:47:55.592270', '0000', 22))
         status, headers, body = \
             self._test_bucket_multipart_uploads_GET(query, multiparts)
         elem = fromstring(body, 'ListMultipartUploadsResult')
@@ -381,9 +381,9 @@ class TestSwift3MultiUpload(Swift3TestCase):
     def test_bucket_multipart_uploads_GET_with_prefix(self):
         query = 'prefix=X'
         multiparts = \
-            (('object/X', '2014-05-07T19:47:50.592270', 'HASH', 1),
-             ('object/X/1', '2014-05-07T19:47:51.592270', 'HASH', 11),
-             ('object/X/2', '2014-05-07T19:47:52.592270', 'HASH', 21))
+            (('object/X', '2014-05-07T19:47:50.592270', '0000', 1),
+             ('object/X/1', '2014-05-07T19:47:51.592270', '0000', 11),
+             ('object/X/2', '2014-05-07T19:47:52.592270', '0000', 21))
         status, headers, body = \
             self._test_bucket_multipart_uploads_GET(query, multiparts)
         elem = fromstring(body, 'ListMultipartUploadsResult')
@@ -409,24 +409,24 @@ class TestSwift3MultiUpload(Swift3TestCase):
     def test_bucket_multipart_uploads_GET_with_delimiter(self):
         query = 'delimiter=/'
         multiparts = \
-            (('object/X', '2014-05-07T19:47:50.592270', 'HASH', 1),
-             ('object/X/1', '2014-05-07T19:47:51.592270', 'HASH', 11),
-             ('object/X/2', '2014-05-07T19:47:52.592270', 'HASH', 21),
-             ('object/Y', '2014-05-07T19:47:50.592270', 'HASH', 2),
-             ('object/Y/1', '2014-05-07T19:47:51.592270', 'HASH', 21),
-             ('object/Y/2', '2014-05-07T19:47:52.592270', 'HASH', 22),
-             ('object/Z', '2014-05-07T19:47:50.592270', 'HASH', 3),
-             ('object/Z/1', '2014-05-07T19:47:51.592270', 'HASH', 31),
-             ('object/Z/2', '2014-05-07T19:47:52.592270', 'HASH', 32),
-             ('subdir/object/X', '2014-05-07T19:47:50.592270', 'HASH', 4),
-             ('subdir/object/X/1', '2014-05-07T19:47:51.592270', 'HASH', 41),
-             ('subdir/object/X/2', '2014-05-07T19:47:52.592270', 'HASH', 42),
-             ('subdir/object/Y', '2014-05-07T19:47:50.592270', 'HASH', 5),
-             ('subdir/object/Y/1', '2014-05-07T19:47:51.592270', 'HASH', 51),
-             ('subdir/object/Y/2', '2014-05-07T19:47:52.592270', 'HASH', 52),
-             ('subdir2/object/Z', '2014-05-07T19:47:50.592270', 'HASH', 6),
-             ('subdir2/object/Z/1', '2014-05-07T19:47:51.592270', 'HASH', 61),
-             ('subdir2/object/Z/2', '2014-05-07T19:47:52.592270', 'HASH', 62))
+            (('object/X', '2014-05-07T19:47:50.592270', '0000', 1),
+             ('object/X/1', '2014-05-07T19:47:51.592270', '0000', 11),
+             ('object/X/2', '2014-05-07T19:47:52.592270', '0000', 21),
+             ('object/Y', '2014-05-07T19:47:50.592270', '0000', 2),
+             ('object/Y/1', '2014-05-07T19:47:51.592270', '0000', 21),
+             ('object/Y/2', '2014-05-07T19:47:52.592270', '0000', 22),
+             ('object/Z', '2014-05-07T19:47:50.592270', '0000', 3),
+             ('object/Z/1', '2014-05-07T19:47:51.592270', '0000', 31),
+             ('object/Z/2', '2014-05-07T19:47:52.592270', '0000', 32),
+             ('subdir/object/X', '2014-05-07T19:47:50.592270', '0000', 4),
+             ('subdir/object/X/1', '2014-05-07T19:47:51.592270', '0000', 41),
+             ('subdir/object/X/2', '2014-05-07T19:47:52.592270', '0000', 42),
+             ('subdir/object/Y', '2014-05-07T19:47:50.592270', '0000', 5),
+             ('subdir/object/Y/1', '2014-05-07T19:47:51.592270', '0000', 51),
+             ('subdir/object/Y/2', '2014-05-07T19:47:52.592270', '0000', 52),
+             ('subdir2/object/Z', '2014-05-07T19:47:50.592270', '0000', 6),
+             ('subdir2/object/Z/1', '2014-05-07T19:47:51.592270', '0000', 61),
+             ('subdir2/object/Z/2', '2014-05-07T19:47:52.592270', '0000', 62))
 
         status, headers, body = \
             self._test_bucket_multipart_uploads_GET(query, multiparts)
@@ -460,24 +460,24 @@ class TestSwift3MultiUpload(Swift3TestCase):
     def test_bucket_multipart_uploads_GET_with_multi_chars_delimiter(self):
         query = 'delimiter=subdir'
         multiparts = \
-            (('object/X', '2014-05-07T19:47:50.592270', 'HASH', 1),
-             ('object/X/1', '2014-05-07T19:47:51.592270', 'HASH', 11),
-             ('object/X/2', '2014-05-07T19:47:52.592270', 'HASH', 21),
+            (('object/X', '2014-05-07T19:47:50.592270', '0000', 1),
+             ('object/X/1', '2014-05-07T19:47:51.592270', '0000', 11),
+             ('object/X/2', '2014-05-07T19:47:52.592270', '0000', 21),
              ('dir/subdir/object/X', '2014-05-07T19:47:50.592270',
-              'HASH', 3),
+              '0000', 3),
              ('dir/subdir/object/X/1', '2014-05-07T19:47:51.592270',
-              'HASH', 31),
+              '0000', 31),
              ('dir/subdir/object/X/2', '2014-05-07T19:47:52.592270',
-              'HASH', 32),
-             ('subdir/object/X', '2014-05-07T19:47:50.592270', 'HASH', 4),
-             ('subdir/object/X/1', '2014-05-07T19:47:51.592270', 'HASH', 41),
-             ('subdir/object/X/2', '2014-05-07T19:47:52.592270', 'HASH', 42),
-             ('subdir/object/Y', '2014-05-07T19:47:50.592270', 'HASH', 5),
-             ('subdir/object/Y/1', '2014-05-07T19:47:51.592270', 'HASH', 51),
-             ('subdir/object/Y/2', '2014-05-07T19:47:52.592270', 'HASH', 52),
-             ('subdir2/object/Z', '2014-05-07T19:47:50.592270', 'HASH', 6),
-             ('subdir2/object/Z/1', '2014-05-07T19:47:51.592270', 'HASH', 61),
-             ('subdir2/object/Z/2', '2014-05-07T19:47:52.592270', 'HASH', 62))
+              '0000', 32),
+             ('subdir/object/X', '2014-05-07T19:47:50.592270', '0000', 4),
+             ('subdir/object/X/1', '2014-05-07T19:47:51.592270', '0000', 41),
+             ('subdir/object/X/2', '2014-05-07T19:47:52.592270', '0000', 42),
+             ('subdir/object/Y', '2014-05-07T19:47:50.592270', '0000', 5),
+             ('subdir/object/Y/1', '2014-05-07T19:47:51.592270', '0000', 51),
+             ('subdir/object/Y/2', '2014-05-07T19:47:52.592270', '0000', 52),
+             ('subdir2/object/Z', '2014-05-07T19:47:50.592270', '0000', 6),
+             ('subdir2/object/Z/1', '2014-05-07T19:47:51.592270', '0000', 61),
+             ('subdir2/object/Z/2', '2014-05-07T19:47:52.592270', '0000', 62))
 
         status, headers, body = \
             self._test_bucket_multipart_uploads_GET(query, multiparts)
@@ -511,14 +511,14 @@ class TestSwift3MultiUpload(Swift3TestCase):
         query = 'prefix=dir/&delimiter=/'
         multiparts = \
             (('dir/subdir/object/X', '2014-05-07T19:47:50.592270',
-              'HASH', 4),
+              '0000', 4),
              ('dir/subdir/object/X/1', '2014-05-07T19:47:51.592270',
-              'HASH', 41),
+              '0000', 41),
              ('dir/subdir/object/X/2', '2014-05-07T19:47:52.592270',
-              'HASH', 42),
-             ('dir/object/X', '2014-05-07T19:47:50.592270', 'HASH', 5),
-             ('dir/object/X/1', '2014-05-07T19:47:51.592270', 'HASH', 51),
-             ('dir/object/X/2', '2014-05-07T19:47:52.592270', 'HASH', 52))
+              '0000', 42),
+             ('dir/object/X', '2014-05-07T19:47:50.592270', '0000', 5),
+             ('dir/object/X/1', '2014-05-07T19:47:51.592270', '0000', 51),
+             ('dir/object/X/2', '2014-05-07T19:47:52.592270', '0000', 52))
 
         status, headers, body = \
             self._test_bucket_multipart_uploads_GET(query, multiparts)
@@ -633,12 +633,14 @@ class TestSwift3MultiUpload(Swift3TestCase):
         status, headers, body = self.call_swift3(req)
         elem = fromstring(body, 'CompleteMultipartUploadResult')
         self.assertNotIn('Etag', headers)
-        self.assertEqual(elem.find('ETag').text, '"object etag-N"')
+        self.assertEqual(elem.find('ETag').text,
+                         "f1d3ff8443297732862df21dc4e57262-2")
         self.assertEqual(status.split()[0], '200')
 
         _, _, headers = self.swift.calls_with_headers[-2]
         self.assertEqual(headers.get('X-Object-Meta-Foo'), 'bar')
-        self.assertEqual(headers.get('Content-Type'), 'baz/quux')
+        self.assertEqual(headers.get('Content-Type'),
+                         'baz/quux;s3_etag=f1d3ff8443297732862df21dc4e57262-2')
 
     def test_object_multipart_upload_complete_weird_host_name(self):
         # This happens via boto signature v4
@@ -751,7 +753,8 @@ class TestSwift3MultiUpload(Swift3TestCase):
         ])
         _, _, put_headers = self.swift.calls_with_headers[-3]
         self.assertEqual(put_headers.get('X-Object-Meta-Foo'), 'bar')
-        self.assertEqual(put_headers.get('Content-Type'), 'baz/quux')
+        self.assertEqual(put_headers.get('Content-Type'),
+                         'baz/quux;s3_etag=59adb24ef3cdbe0297f05b395827453f-1')
 
     def test_object_multipart_upload_complete_double_zero_length_segment(self):
         segment_bucket = '/v1/AUTH_test/empty-bucket+segments'
@@ -809,12 +812,12 @@ class TestSwift3MultiUpload(Swift3TestCase):
         object_list = [{
             'name': 'object/X/1',
             'last_modified': self.last_modified,
-            'hash': 'some hash',
+            'hash': '0000',
             'bytes': '100',
         }, {
             'name': 'object/X/2',
             'last_modified': self.last_modified,
-            'hash': 'some other hash',
+            'hash': '0000',
             'bytes': '1',
         }, {
             'name': 'object/X/3',
@@ -836,11 +839,11 @@ class TestSwift3MultiUpload(Swift3TestCase):
         xml = '<CompleteMultipartUpload>' \
             '<Part>' \
             '<PartNumber>1</PartNumber>' \
-            '<ETag>some hash</ETag>' \
+            '<ETag>0000</ETag>' \
             '</Part>' \
             '<Part>' \
             '<PartNumber>2</PartNumber>' \
-            '<ETag>some other hash</ETag>' \
+            '<ETag>0000</ETag>' \
             '</Part>' \
             '<Part>' \
             '<PartNumber>3</PartNumber>' \
@@ -888,7 +891,8 @@ class TestSwift3MultiUpload(Swift3TestCase):
 
         _, _, headers = self.swift.calls_with_headers[-2]
         self.assertEqual(headers.get('X-Object-Meta-Foo'), 'bar')
-        self.assertEqual(headers.get('Content-Type'), 'baz/quux')
+        self.assertEqual(headers.get('Content-Type'),
+                         'baz/quux;s3_etag=f1d3ff8443297732862df21dc4e57262-2')
         self.assertEqual(tostring(ACLPublicRead(Owner('test:tester',
                                                       'test:tester')).elem()),
                          tostring(decode_acl('object', headers).elem()))
