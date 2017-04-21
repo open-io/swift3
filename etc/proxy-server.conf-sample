@@ -121,6 +121,23 @@ use = egg:swift3#swift3
 # upload, except the last part.
 min_segment_size = 5242880
 
+# Enable the Redis-based bucket database. This will make the bucket names
+# globally unique, and will enable anonymous requests (provided that ACLs
+# are enabled and set to public-read for the requested object).
+#
+# IP address and port of the single Redis server.
+# bucket_db_host =
+#
+# Comma separated list of Redis Sentinel IP:PORT couples. If this
+# parameter is set, bucket_db_host is ignored.
+# bucket_db_sentinel_hosts =
+#
+# Name of the Redis Sentinel master group, mandatory if using Redis Sentinel.
+# bucket_db_master_name =
+#
+# Prefix for bucket names in the database.
+# bucket_db_prefix = s3bucket:
+
 [filter:catch_errors]
 use = egg:swift#catch_errors
 
