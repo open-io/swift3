@@ -125,6 +125,8 @@ min_segment_size = 5242880
 # globally unique, and will enable anonymous requests (provided that ACLs
 # are enabled and set to public-read for the requested object).
 #
+# bucket_db_enabled = false
+#
 # IP address and port of the single Redis server.
 # bucket_db_host =
 #

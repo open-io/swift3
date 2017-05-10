@@ -1315,7 +1315,7 @@ class Request(swob.Request):
 
         if self.bucket_db and method == 'PUT':
             # Container creation failed, remove reservation
-            self.bucket_db.release(container, self.account)
+            self.bucket_db.release(container)
 
         err_msg = resp.body
 

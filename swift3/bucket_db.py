@@ -14,8 +14,8 @@
 # limitations under the License.
 
 import time
-import redis
-import redis.sentinel
+import importlib
+from swift.common.utils import config_true_value
 
 
 class DummyBucketDb(object):
@@ -80,6 +80,9 @@ class RedisBucketDb(object):
     def __init__(self, host="127.0.0.1:6379",
                  sentinel_hosts=None, master_name=None,
                  prefix="s3bucket:", **kwargs):
+        self.__redis_mod = importlib.import_module('redis')
+        self.__redis_sentinel_mod = importlib.import_module('redis.sentinel')
+
         self._redis_host, self._redis_port = host.rsplit(':', 1)
         self._redis_port = int(self._redis_port)
         self._prefix = prefix
@@ -97,15 +100,16 @@ class RedisBucketDb(object):
         self._sentinel = None
 
         if self._sentinel_hosts:
-            self._sentinel = redis.sentinel.Sentinel(self._sentinel_hosts)
+            self._sentinel = self.__redis_sentinel_mod.Sentinel(
+                self._sentinel_hosts)
 
     @property
     def conn(self):
         if self._sentinel:
             return self._sentinel.master_for(self._master_name)
         if not self._conn:
-            self._conn = redis.StrictRedis(host=self._redis_host,
-                                           port=self._redis_port)
+            self._conn = self.__redis_mod.StrictRedis(host=self._redis_host,
+                                                      port=self._redis_port)
         return self._conn
 
     def _key(self, bucket):
@@ -153,9 +157,17 @@ class RedisBucketDb(object):
 
 
 def get_bucket_db(conf):
+    """
+    If `bucket_db_enabled` is set in `conf`, get the bucket database,
+    otherwise return `None`.
+
+    If `bucket_db_host` or `bucket_db_sentinel_hosts` are also set in `conf`,
+    return an instance of `RedisBucketDb`, otherwise return an instance of
+    `DummyBucketDb`.
+    """
     db_kwargs = {k[10:]: v for k, v in conf.items()
                  if k.startswith('bucket_db_')}
-    if db_kwargs:
+    if config_true_value(db_kwargs.get('enabled', 'false')):
         if 'host' in db_kwargs or 'sentinel_hosts' in db_kwargs:
             return RedisBucketDb(**db_kwargs)
         else:
