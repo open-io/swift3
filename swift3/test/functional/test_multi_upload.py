@@ -16,6 +16,7 @@
 import unittest
 import os
 import boto
+import logging
 
 # For an issue with venv and distutils, disable pylint message here
 # pylint: disable-msg=E0611,F0401
@@ -37,6 +38,8 @@ MIN_SEGMENT_SIZE = CONF.min_segment_size
 class TestSwift3MultiUpload(Swift3FunctionalTestCase):
     def setUp(self):
         super(TestSwift3MultiUpload, self).setUp()
+        # avoid to hit Travis limit with log greater than 4MB
+        logging.getLogger('boto').setLevel(logging.INFO)
 
     def _gen_comp_xml(self, etags):
         elem = Element('CompleteMultipartUpload')
