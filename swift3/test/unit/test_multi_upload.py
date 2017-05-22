@@ -634,7 +634,7 @@ class TestSwift3MultiUpload(Swift3TestCase):
         elem = fromstring(body, 'CompleteMultipartUploadResult')
         self.assertNotIn('Etag', headers)
         self.assertEqual(elem.find('ETag').text,
-                         "f1d3ff8443297732862df21dc4e57262-2")
+                         '"f1d3ff8443297732862df21dc4e57262-2"')
         self.assertEqual(status.split()[0], '200')
 
         _, _, headers = self.swift.calls_with_headers[-2]

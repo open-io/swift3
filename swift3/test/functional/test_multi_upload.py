@@ -294,7 +294,8 @@ class TestSwift3MultiUpload(Swift3FunctionalTestCase):
         etag = elem.find('ETag').text
         self.assertIsNotNone(etag)
         self.assertTrue(etag.startswith('"'))
-        self.assertTrue(etag.endswith('-N"'))
+        # The number at the end is the number of parts
+        self.assertTrue(etag.endswith('-1"'))
 
         status, headers, body = \
             self.conn.make_request('HEAD', bucket, key)
@@ -303,7 +304,7 @@ class TestSwift3MultiUpload(Swift3FunctionalTestCase):
         self.assertTrue('etag' in headers)
         etag = headers['etag']
         self.assertTrue(etag.startswith('"'))
-        self.assertTrue(etag.endswith('-N"'))
+        self.assertTrue(etag.endswith('-1"'))
 
     def test_initiate_multi_upload_error(self):
         bucket = 'bucket'
