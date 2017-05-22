@@ -11,10 +11,10 @@ class TestSwift3BucketDb(Swift3TestCase):
     def __init__(self, name):
         super(TestSwift3BucketDb, self).__init__(name)
 
+    def setUp(self):
         # Trick to load dummy bucket DB
         CONF.bucket_db_enabled = True
 
-    def setUp(self):
         super(TestSwift3BucketDb, self).setUp()
         self.swift.register('PUT', '/v1/AUTH_test2/bucket',
                             swob.HTTPCreated, {}, None)
