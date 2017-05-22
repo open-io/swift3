@@ -647,7 +647,7 @@ class UploadController(Controller):
         SubElement(result_elem, 'Location').text = host_url + req.path
         SubElement(result_elem, 'Bucket').text = req.container_name
         SubElement(result_elem, 'Key').text = req.object_name
-        SubElement(result_elem, 'ETag').text = s3_etag
+        SubElement(result_elem, 'ETag').text = '"%s"' % s3_etag
         del resp.headers['ETag']
 
         resp.body = tostring(result_elem)
