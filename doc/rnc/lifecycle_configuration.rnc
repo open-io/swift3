@@ -4,16 +4,35 @@ start =
   element LifecycleConfiguration {
     element Rule {
       element ID { xsd:string }? &
-      element Prefix { xsd:string } &
+      element Filter { Filter } &
       element Status { "Enabled" | "Disabled" } &
-      element Transition { Transition }? &
-      element Expiration { Expiration }?
+      element AbortIncompleteMultipartUpload {
+          element DaysAfterInitiation { xsd:positiveInteger }
+      }? &
+      element Expiration { Expiration }? &
+      element NoncurrentVersionExpiration {
+        element NoncurrentDays { xsd:positiveInteger }
+      }? &
+      element NoncurrentVersionTransition { NoncurrentVersionTransition }? &
+      element Transition { Transition }?
     }+
   }
 
 Expiration =
-  element Days { xsd:int } |
-  element Date { xsd:dateTime }
+  element Days { xsd:nonNegativeInteger } |
+  element Date { xsd:dateTime } |
+  element ExpiredObjectDeleteMarker { xsd:boolean }
+
+Filter =
+  element Prefix { xsd:string }? &
+  element Tag {
+    element Key { xsd:string } &
+    element Value { xsd:string }
+  }*
+
+NoncurrentVersionTransition =
+  element NoncurrentDays { xsd:nonNegativeInteger } &
+  element StorageClass { StorageClass }
 
 Transition =
   Expiration &
