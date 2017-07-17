@@ -39,7 +39,7 @@ from swift3.controllers import ServiceController, BucketController, \
     ObjectController, AclController, MultiObjectDeleteController, \
     LocationController, LoggingStatusController, PartController, \
     UploadController, UploadsController, VersioningController, \
-    UnsupportedController, S3AclController
+    UnsupportedController, S3AclController, LifecycleController
 from swift3.response import AccessDenied, InvalidArgument, InvalidDigest, \
     RequestTimeTooSkewed, Response, SignatureDoesNotMatch, \
     BucketAlreadyExists, BucketNotEmpty, EntityTooLarge, OperationAborted, \
@@ -869,6 +869,8 @@ class Request(swob.Request):
             return AclController
         if 'delete' in self.params:
             return MultiObjectDeleteController
+        if 'lifecycle' in self.params:
+            return LifecycleController
         if 'location' in self.params:
             return LocationController
         if 'logging' in self.params:

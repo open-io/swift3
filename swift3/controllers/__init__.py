@@ -1,4 +1,4 @@
-# Copyright (c) 2014 OpenStack Foundation.
+# Copyright (c) 2014,2017 OpenStack Foundation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ from swift3.controllers.s3_acl import S3AclController
 from swift3.controllers.multi_delete import MultiObjectDeleteController
 from swift3.controllers.multi_upload import UploadController, \
     PartController, UploadsController
+from swift3.controllers.lifecycle import LifecycleController
 from swift3.controllers.location import LocationController
 from swift3.controllers.logging import LoggingStatusController
 from swift3.controllers.versioning import VersioningController
@@ -39,6 +40,7 @@ __all__ = [
     'PartController',
     'UploadsController',
     'UploadController',
+    'LifecycleController',
     'LocationController',
     'LoggingStatusController',
     'VersioningController',
