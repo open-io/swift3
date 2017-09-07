@@ -428,6 +428,22 @@ class SigV4Mixin(object):
         })
         return kwargs
 
+    def to_swift_req(self, method, container, obj, query=None,
+                     body=None, headers=None):
+        # SigV4 PUT requests may have a chunked body without the
+        # 'Transfer-Encoding' header.
+        # The presence of HTTP_X_AMZ_DECODED_CONTENT_LENGTH header
+        # is a sign we are in such case.
+        if (method == 'PUT' and
+                'HTTP_X_AMZ_DECODED_CONTENT_LENGTH' in self.environ):
+            try:
+                self.environ['eventlet.input'].chunked_input = True
+            except KeyError:
+                LOGGER.warning('SigV4 PUT request ' +
+                               'but failed to set chunked transfer-encoding')
+        return super(SigV4Mixin, self).to_swift_req(
+            method, container, obj, query=query, body=body, headers=headers)
+
 
 def get_request_class(env):
     """
