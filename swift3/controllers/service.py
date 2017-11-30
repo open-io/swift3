@@ -18,7 +18,7 @@ from swift.common.utils import json, public
 from swift3.controllers.base import Controller
 from swift3.etree import Element, SubElement, tostring
 from swift3.response import HTTPOk, AccessDenied, NoSuchBucket
-from swift3.utils import validate_bucket_name
+from swift3.utils import validate_bucket_name, S3Timestamp
 from swift3.cfg import CONF
 
 
@@ -48,9 +48,13 @@ class ServiceController(Controller):
 
         buckets = SubElement(elem, 'Buckets')
         for c in containers:
+            creation_date = '2009-02-03T16:45:09.000Z'
             if CONF.s3_acl and CONF.check_bucket_owner:
                 try:
-                    req.get_response(self.app, 'HEAD', c['name'])
+                    c_resp = req.get_response(self.app, 'HEAD', c['name'])
+                    if 'X-Timestamp' in c_resp.sw_headers:
+                        creation_date = S3Timestamp(
+                            c_resp.sw_headers['X-Timestamp']).s3xmlformat
                 except AccessDenied:
                     continue
                 except NoSuchBucket:
@@ -58,8 +62,7 @@ class ServiceController(Controller):
 
             bucket = SubElement(buckets, 'Bucket')
             SubElement(bucket, 'Name').text = c['name']
-            SubElement(bucket, 'CreationDate').text = \
-                '2009-02-03T16:45:09.000Z'
+            SubElement(bucket, 'CreationDate').text = creation_date
 
         body = tostring(elem)
 
