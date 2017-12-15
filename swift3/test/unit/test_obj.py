@@ -393,6 +393,9 @@ class TestSwift3Obj(Swift3TestCase):
                                        swob.HTTPUnprocessableEntity)
         self.assertEqual(code, 'BadDigest')
         code = self._test_method_error('PUT', '/bucket/object',
+                                       swob.HTTPConflict)
+        self.assertEqual(code, 'OperationAborted')
+        code = self._test_method_error('PUT', '/bucket/object',
                                        swob.HTTPLengthRequired)
         self.assertEqual(code, 'MissingContentLength')
         code = self._test_method_error('PUT', '/bucket/object',
