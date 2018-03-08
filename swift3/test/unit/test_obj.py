@@ -179,7 +179,7 @@ class TestSwift3Obj(Swift3TestCase):
         self.swift.register('HEAD', '/v1/AUTH_test/bucket/object',
                             swob.HTTPServiceUnavailable, {}, None)
         status, headers, body = self.call_swift3(req)
-        self.assertEqual(status.split()[0], '500')
+        self.assertEqual(status.split()[0], '503')
         self.assertEqual(body, '')  # sanity
 
     def test_object_HEAD(self):
@@ -299,7 +299,7 @@ class TestSwift3Obj(Swift3TestCase):
         self.assertEqual(code, 'PreconditionFailed')
         code = self._test_method_error('GET', '/bucket/object',
                                        swob.HTTPServiceUnavailable)
-        self.assertEqual(code, 'InternalError')
+        self.assertEqual(code, 'ServiceUnavailable')
 
     @s3acl
     def test_object_GET(self):
@@ -465,7 +465,7 @@ class TestSwift3Obj(Swift3TestCase):
         self.assertEqual(code, 'InternalError')
         code = self._test_method_error('PUT', '/bucket/object',
                                        swob.HTTPServiceUnavailable)
-        self.assertEqual(code, 'InternalError')
+        self.assertEqual(code, 'ServiceUnavailable')
         code = self._test_method_error('PUT', '/bucket/object',
                                        swob.HTTPCreated,
                                        {'X-Amz-Copy-Source': ''})
@@ -820,7 +820,7 @@ class TestSwift3Obj(Swift3TestCase):
         self.assertEqual(code, 'InternalError')
         code = self._test_method_error('DELETE', '/bucket/object',
                                        swob.HTTPServiceUnavailable)
-        self.assertEqual(code, 'InternalError')
+        self.assertEqual(code, 'ServiceUnavailable')
 
         self.swift.register('HEAD', '/v1/AUTH_test/bucket',
                             swob.HTTPNotFound, {}, None)

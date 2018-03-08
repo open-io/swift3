@@ -29,7 +29,8 @@ from swift.common.http import HTTP_OK, HTTP_CREATED, HTTP_ACCEPTED, \
     HTTP_CONFLICT, HTTP_UNPROCESSABLE_ENTITY, HTTP_REQUEST_ENTITY_TOO_LARGE, \
     HTTP_PARTIAL_CONTENT, HTTP_NOT_MODIFIED, HTTP_PRECONDITION_FAILED, \
     HTTP_REQUESTED_RANGE_NOT_SATISFIABLE, HTTP_LENGTH_REQUIRED, \
-    HTTP_BAD_REQUEST, HTTP_REQUEST_TIMEOUT, is_success
+    HTTP_BAD_REQUEST, HTTP_REQUEST_TIMEOUT, HTTP_SERVICE_UNAVAILABLE, \
+    is_success
 
 from swift.common.constraints import check_utf8
 from swift.proxy.controllers.base import get_container_info, \
@@ -46,7 +47,8 @@ from swift3.response import AccessDenied, InvalidArgument, InvalidDigest, \
     InternalError, NoSuchBucket, NoSuchKey, PreconditionFailed, InvalidRange, \
     MissingContentLength, InvalidStorageClass, S3NotImplemented, InvalidURI, \
     MalformedXML, InvalidRequest, RequestTimeout, InvalidBucketName, \
-    BadDigest, AuthorizationHeaderMalformed, AuthorizationQueryParametersError
+    BadDigest, AuthorizationHeaderMalformed, \
+    AuthorizationQueryParametersError, ServiceUnavailable
 from swift3.exception import NotS3Request, BadSwiftRequest
 from swift3.utils import utf8encode, LOGGER, check_path_header, S3Timestamp, \
     mktime, MULTIUPLOAD_SUFFIX
@@ -1193,6 +1195,8 @@ class Request(swob.Request):
             raise SignatureDoesNotMatch()
         if status == HTTP_FORBIDDEN:
             raise AccessDenied()
+        if status == HTTP_SERVICE_UNAVAILABLE:
+            raise ServiceUnavailable()
 
         raise InternalError('unexpected status code %d' % status)
 

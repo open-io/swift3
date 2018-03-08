@@ -39,7 +39,7 @@ import six
 from six.moves import urllib
 
 from swift.common.swob import Request, HTTPBadRequest, HTTPUnauthorized, \
-    HTTPException
+    HTTPException, HTTPServiceUnavailable
 from swift.common.utils import config_true_value, split_path, get_logger
 from swift.common.wsgi import ConfigFileError
 
@@ -180,6 +180,8 @@ class S3Token(object):
             'AccessDenied': (HTTPUnauthorized, 'Access denied'),
             'InvalidURI': (HTTPBadRequest,
                            'Could not parse the specified URI'),
+            'ServiceUnavailable': (HTTPServiceUnavailable,
+                                   'Service unavailable'),
         }[code]
         resp = error_cls(content_type='text/xml')
         error_msg = ('<?xml version="1.0" encoding="UTF-8"?>\r\n'
@@ -198,6 +200,9 @@ class S3Token(object):
                                      headers=headers, data=creds_json,
                                      verify=self._verify,
                                      timeout=self._timeout)
+        except requests.exceptions.Timeout as e:
+            self._logger.info('HTTP timeout: %s', e)
+            raise self._deny_request('ServiceUnavailable')
         except requests.exceptions.RequestException as e:
             self._logger.info('HTTP connection exception: %s', e)
             raise self._deny_request('InvalidURI')
