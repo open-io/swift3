@@ -194,6 +194,9 @@ class ErrorResponse(ResponseBase, swob.HTTPException):
                                     content_type='application/xml', *args,
                                     **kwargs)
         self.headers = HeaderKeyDict(self.headers)
+        # Force HTTP/1.1 to close otherwise awscli retries
+        # but still use first error
+        self.headers['Connection'] = 'Close'
 
     def _body_iter(self):
         error_elem = Element('Error')
