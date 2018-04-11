@@ -374,6 +374,8 @@ class SigV4Mixin(object):
         if (method == 'PUT' and
                 'HTTP_X_AMZ_DECODED_CONTENT_LENGTH' in self.environ):
             try:
+                self.environ['HTTP_TRANSFER_ENCODING'] = "chunked"
+                self.environ.pop('CONTENT_LENGTH', None)
                 self.environ['eventlet.input'].chunked_input = True
             except KeyError:
                 LOGGER.warning('SigV4 PUT request ' +
