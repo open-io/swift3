@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from swift.common.utils import json, public
+from swift.common.utils import json, public, last_modified_date_to_timestamp
 
 from swift3.controllers.base import Controller
 from swift3.etree import Element, SubElement, tostring
@@ -48,7 +48,11 @@ class ServiceController(Controller):
 
         buckets = SubElement(elem, 'Buckets')
         for c in containers:
-            creation_date = '2009-02-03T16:45:09.000Z'
+            if 'last_modified' in c:
+                ts = last_modified_date_to_timestamp(c['last_modified'])
+                creation_date = S3Timestamp(ts).s3xmlformat
+            else:
+                creation_date = '2009-02-03T16:45:09.000Z'
             if CONF.s3_acl and CONF.check_bucket_owner:
                 try:
                     c_resp = req.get_response(self.app, 'HEAD', c['name'])
