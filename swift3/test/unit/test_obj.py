@@ -1071,5 +1071,6 @@ class TestSwift3ObjNonUTC(TestSwift3Obj):
         os.environ['TZ'] = self.orig_tz
         time.tzset()
 
+
 if __name__ == '__main__':
     unittest.main()

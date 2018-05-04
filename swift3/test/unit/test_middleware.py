@@ -1,4 +1,4 @@
-# Copyright (c) 2011-2014 OpenStack Foundation.
+# Copyright (c) 2011-2014,2018 OpenStack Foundation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -499,9 +499,6 @@ class TestSwift3Middleware(Swift3TestCase):
 
     def test_cors(self):
         self._test_unsupported_resource('cors')
-
-    def test_tagging(self):
-        self._test_unsupported_resource('tagging')
 
     def test_restore(self):
         self._test_unsupported_resource('restore')

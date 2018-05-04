@@ -1,4 +1,4 @@
-# Copyright (c) 2014,2017 OpenStack Foundation.
+# Copyright (c) 2014,2017-2018 OpenStack Foundation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ from swift.proxy.controllers.base import get_container_info, \
 from swift3.controllers import ServiceController, BucketController, \
     ObjectController, AclController, MultiObjectDeleteController, \
     LocationController, LoggingStatusController, PartController, \
+    TaggingController, \
     UploadController, UploadsController, VersioningController, \
     UnsupportedController, S3AclController, LifecycleController
 from swift3.response import AccessDenied, InvalidArgument, InvalidDigest, \
@@ -891,6 +892,8 @@ class Request(swob.Request):
             return LoggingStatusController
         if 'partNumber' in self.params:
             return PartController
+        if 'tagging' in self.params:
+            return TaggingController
         if 'uploadId' in self.params:
             return UploadController
         if 'uploads' in self.params:
@@ -899,7 +902,7 @@ class Request(swob.Request):
             return VersioningController
 
         unsupported = ('notification', 'policy', 'requestPayment', 'torrent',
-                       'website', 'cors', 'tagging', 'restore')
+                       'website', 'cors', 'restore')
         if set(unsupported) & set(self.params):
             return UnsupportedController
 

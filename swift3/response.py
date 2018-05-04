@@ -1,4 +1,4 @@
-# Copyright (c) 2014 OpenStack Foundation.
+# Copyright (c) 2014,2018 OpenStack Foundation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ class Response(ResponseBase, swob.Response):
                           'content-range', 'content-encoding',
                           'content-disposition', 'content-language',
                           'etag', 'last-modified', 'x-robots-tag',
-                          'cache-control', 'expires'):
+                          'cache-control', 'expires', 'x-amz-version-id'):
                 headers[key] = val
             elif _key == 'x-static-large-object':
                 # for delete slo
@@ -546,6 +546,11 @@ class NoSuchKey(ErrorResponse):
 class NoSuchLifecycleConfiguration(ErrorResponse):
     _status = '404 Not Found'
     _msg = 'The lifecycle configuration does not exist. .'
+
+
+class NoSuchTagSet(ErrorResponse):
+    _status = '404 Not Found'
+    _msg = 'There is no tag set associated with the bucket or object.'
 
 
 class NoSuchUpload(ErrorResponse):

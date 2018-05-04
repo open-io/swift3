@@ -1,0 +1,11 @@
+include "common.rnc"
+
+start =
+  element Tagging {
+    element TagSet {
+      element Tag {
+        element Key { xsd:string } &
+        element Value { xsd:string }
+      }*
+    }
+  }
