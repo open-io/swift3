@@ -1,4 +1,4 @@
-# Copyright (c) 2010-2014 OpenStack Foundation.
+# Copyright (c) 2010-2014,2018 OpenStack Foundation.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ from hashlib import md5
 from binascii import unhexlify
 
 from swift.common.swob import Range
-from swift.common.utils import json, public
+from swift.common.utils import json, public, close_if_possible
 from swift.common.db import utf8encode
 
 from six.moves.urllib.parse import urlparse  # pylint: disable=F0401
@@ -60,9 +60,10 @@ from swift3.controllers.base import Controller, bucket_operation, \
 from swift3.response import InvalidArgument, ErrorResponse, MalformedXML, \
     InvalidPart, BucketAlreadyExists, EntityTooSmall, InvalidPartOrder, \
     InvalidRequest, HTTPOk, HTTPNoContent, NoSuchKey, NoSuchUpload, \
-    NoSuchBucket
+    NoSuchBucket, InvalidRange
 from swift3.exception import BadSwiftRequest
-from swift3.utils import LOGGER, unique_id, MULTIUPLOAD_SUFFIX, S3Timestamp
+from swift3.utils import LOGGER, unique_id, MULTIUPLOAD_SUFFIX, S3Timestamp, \
+    extract_s3_etag
 from swift3.etree import Element, SubElement, fromstring, tostring, \
     XMLSyntaxError, DocumentInvalid
 from swift3.cfg import CONF
@@ -98,6 +99,23 @@ class PartController(Controller):
 
     Those APIs are logged as PART operations in the S3 server log.
     """
+
+    def parse_part_number(self, req):
+        """
+        Parse the part number from query string.
+        Raise InvalidArgument if missing or invalid.
+        """
+        try:
+            part_number = int(req.params['partNumber'])
+            if part_number < 1 or CONF.max_upload_part_num < part_number:
+                raise Exception()
+        except Exception:
+            err_msg = 'Part number must be an integer between 1 and %d,' \
+                      ' inclusive' % CONF.max_upload_part_num
+            raise InvalidArgument('partNumber', req.params['partNumber'],
+                                  err_msg)
+        return part_number
+
     @public
     @object_operation
     @check_container_existence
@@ -110,15 +128,7 @@ class PartController(Controller):
             raise InvalidArgument('ResourceType', 'partNumber',
                                   'Unexpected query string parameter')
 
-        try:
-            part_number = int(req.params['partNumber'])
-            if part_number < 1 or CONF.max_upload_part_num < part_number:
-                raise Exception()
-        except Exception:
-            err_msg = 'Part number must be an integer between 1 and %d,' \
-                      ' inclusive' % CONF.max_upload_part_num
-            raise InvalidArgument('partNumber', req.params['partNumber'],
-                                  err_msg)
+        part_number = self.parse_part_number(req)
 
         upload_id = req.params['uploadId']
         _check_upload_info(req, self.app, upload_id)
@@ -163,6 +173,64 @@ class PartController(Controller):
                                        req_timestamp.s3xmlformat)
 
         resp.status = 200
+        return resp
+
+    @public
+    @object_operation
+    @check_container_existence
+    def GET(self, req):
+        """
+        Handles Get Part (regular Get but with ?part-number=N).
+        """
+        return self.GETorHEAD(req)
+
+    @public
+    @object_operation
+    @check_container_existence
+    def HEAD(self, req):
+        """
+        Handles Head Part (regular HEAD but with ?part-number=N).
+        """
+        return self.GETorHEAD(req)
+
+    def GETorHEAD(self, req):
+        """
+        Handled GET or HEAD request on a part of a multipart object.
+        """
+        part_number = self.parse_part_number(req)
+
+        # Get the list of parts. Must be raw to get all response headers.
+        slo_req = req.to_swift_req('GET', req.container_name, req.object_name,
+                                   query={'multipart-manifest': 'get',
+                                          'format': 'raw'})
+        slo_resp = slo_req.get_response(self.app)
+
+        # Check if the object is really a SLO. If not, and user asked
+        # for the first part, do a regular request.
+        if 'X-Static-Large-Object' not in slo_resp.headers:
+            close_if_possible(slo_resp.app_iter)
+            if part_number == 1:
+                return req.get_response(self.app)
+            else:
+                raise InvalidRange()
+
+        # Locate the part
+        slo = json.loads(slo_resp.body)
+        try:
+            part = slo[part_number - 1]
+        except IndexError:
+            raise InvalidRange()
+
+        # Redirect the request on the part
+        _, req.container_name, req.object_name = part['path'].split('/', 2)
+        resp = req.get_response(self.app)
+
+        # Get the content-type and etag of the object, not the part
+        ctype, etag = extract_s3_etag(slo_resp.headers['Content-Type'])
+        resp.headers['Content-Type'] = ctype
+        if etag:
+            resp.headers['ETag'] = '"%s"' % etag
+        resp.headers['X-Amz-Mp-Parts-Count'] = len(slo)
         return resp
 
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2014 OpenStack Foundation
+# Copyright (c) 2014,2018 OpenStack Foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,6 +44,18 @@ xml = '<CompleteMultipartUpload>' \
     '</Part>' \
     '</CompleteMultipartUpload>'
 
+object_manifest = \
+    [{'bytes': 11,
+      'content_type': 'application/octet-stream',
+      'etag': '0000',
+      'last_modified': '2018-05-21T08:40:58.000000',
+      'path': '/bucket+segments/object/X/1'},
+     {'bytes': 21,
+      'content_type': 'application/octet-stream',
+      'etag': '0000',
+      'last_modified': '2018-05-21T08:40:59.000000',
+      'path': '/bucket+segments/object/X/2'}]
+
 objects_template = \
     (('object/X/1', '2014-05-07T19:47:51.592270', '0000', 100),
      ('object/X/2', '2014-05-07T19:47:52.592270', '0000', 200))
@@ -68,7 +80,8 @@ class TestSwift3MultiUpload(Swift3TestCase):
     def setUp(self):
         super(TestSwift3MultiUpload, self).setUp()
 
-        segment_bucket = '/v1/AUTH_test/bucket+segments'
+        bucket = '/v1/AUTH_test/bucket'
+        segment_bucket = bucket + '+segments'
         self.etag = '7dfa07a8e59ddbcd1dc84d4c4f82aea1'
         self.last_modified = 'Fri, 01 Apr 2014 12:00:00 GMT'
         put_headers = {'etag': self.etag, 'last-modified': self.last_modified}
@@ -99,6 +112,21 @@ class TestSwift3MultiUpload(Swift3TestCase):
                             swob.HTTPNoContent, {}, None)
         self.swift.register('DELETE', segment_bucket + '/object/X/2',
                             swob.HTTPNoContent, {}, None)
+
+        mp_manifest = bucket + '/object?format=raw&multipart-manifest=get'
+        self.swift.register('GET', mp_manifest,
+                            swob.HTTPOk,
+                            {'content-type':
+                                'application/x-sharedlib;s3_etag=0002-2',
+                             'etag': '0001',
+                             'X-Static-Large-Object': 'True'},
+                            json.dumps(object_manifest))
+        self.swift.register('HEAD', segment_bucket + '/object/X/1',
+                            swob.HTTPOk,
+                            {'etag': '0000',
+                             'content-type': 'application/octet-stream',
+                             'content-length': '11'},
+                            None)
 
     @s3acl
     def test_bucket_upload_part(self):
@@ -963,6 +991,29 @@ class TestSwift3MultiUpload(Swift3TestCase):
         status, headers, body = self.call_swift3(req)
         self.assertEqual(status.split()[0], '200')
 
+    def _test_object_head_part(self, part_number=1):
+        req = Request.blank('/bucket/object?partNumber=%d' % part_number,
+                            environ={'REQUEST_METHOD': 'HEAD'},
+                            headers={'Authorization': 'AWS test:tester:hmac',
+                                     'Date': self.get_date_header()},
+                            body=None)
+        return self.call_swift3(req)
+
+    @s3acl
+    def test_object_head_part(self):
+        status, headers, body = self._test_object_head_part()
+        self.assertEqual('200', status.split()[0])
+        self.assertFalse(body)
+        self.assertIn('ETag', headers)
+        self.assertIn('X-Amz-Mp-Parts-Count', headers)
+        self.assertEqual('"0002-2"', headers['ETag'])
+        self.assertEqual('2', headers['X-Amz-Mp-Parts-Count'])
+
+    @s3acl
+    def test_object_head_part_error(self):
+        status, headers, body = self._test_object_head_part(12)
+        self.assertEqual('416', status.split()[0])
+
     @s3acl
     def test_object_list_parts_error(self):
         req = Request.blank('/bucket/object?uploadId=invalid',
@@ -1008,8 +1059,7 @@ class TestSwift3MultiUpload(Swift3TestCase):
         for p in elem.findall('Part'):
             partnum = int(p.find('PartNumber').text)
             self.assertEqual(p.find('LastModified').text,
-                             objects_template[partnum - 1][1][:-3]
-                             + 'Z')
+                             objects_template[partnum - 1][1][:-3] + 'Z')
             self.assertEqual(p.find('ETag').text.strip(),
                              '"%s"' % objects_template[partnum - 1][2])
             self.assertEqual(p.find('Size').text,
@@ -1098,8 +1148,7 @@ class TestSwift3MultiUpload(Swift3TestCase):
         for p in elem.findall('Part'):
             partnum = int(p.find('PartNumber').text)
             self.assertEqual(p.find('LastModified').text,
-                             objects_template[partnum - 1][1][:-3]
-                             + 'Z')
+                             objects_template[partnum - 1][1][:-3] + 'Z')
             self.assertEqual(p.find('ETag').text,
                              '"%s"' % objects_template[partnum - 1][2])
             self.assertEqual(p.find('Size').text,
@@ -1601,6 +1650,7 @@ class TestSwift3MultiUploadNonUTC(TestSwift3MultiUpload):
         super(TestSwift3MultiUploadNonUTC, self).tearDown()
         os.environ['TZ'] = self.orig_tz
         time.tzset()
+
 
 if __name__ == '__main__':
     unittest.main()
