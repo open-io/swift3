@@ -87,6 +87,8 @@ def _header_strip(value):
         # behave as though it wasn't provided
         return None
     return stripped
+
+
 _header_strip.re = re.compile('^[\x00-\x20]*|[\x00-\x20]*$')
 
 
@@ -789,16 +791,18 @@ class Request(swob.Request):
             split_path(self.headers['X-Amz-Copy-Source'], 1, 2, True)
 
         if (self.container_name == source_container and
-                self.object_name == source_obj and
-                self.headers.get('x-amz-metadata-directive',
-                                 'COPY') == 'COPY'):
-            raise InvalidRequest("This copy request is illegal "
-                                 "because it is trying to copy an "
-                                 "object to itself without "
-                                 "changing the object's metadata, "
-                                 "storage class, website redirect "
-                                 "location or encryption "
-                                 "attributes.")
+                self.object_name == source_obj):
+            if self.headers.get('x-amz-metadata-directive', 'COPY') == 'COPY':
+                raise InvalidRequest("This copy request is illegal "
+                                     "because it is trying to copy an "
+                                     "object to itself without "
+                                     "changing the object's metadata, "
+                                     "storage class, website redirect "
+                                     "location or encryption "
+                                     "attributes.")
+            else:
+                self.environ['swift3.copy_to_itself'] = True
+
         return src_resp
 
     def _canonical_uri(self):
@@ -951,6 +955,11 @@ class Request(swob.Request):
             env['HTTP_X_COPY_FROM'] = env['HTTP_X_AMZ_COPY_SOURCE']
             del env['HTTP_X_AMZ_COPY_SOURCE']
             env['CONTENT_LENGTH'] = '0'
+            # Mitigate a bug where overwriting a SLO did not remove parts.
+            if env.get('swift3.copy_to_itself', False):
+                if query is None:
+                    query = dict()
+                query['multipart-manifest'] = 'get'
 
         if CONF.force_swift_request_proxy_log:
             env['swift.proxy_access_log_made'] = False
