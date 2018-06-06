@@ -60,7 +60,9 @@ class S3AclController(Controller):
             # So headers['X-Copy-From'] for copy request is added here.
             headers['X-Copy-From'] = quote(src_path)
             headers['Content-Length'] = 0
-            req.get_response(self.app, 'PUT', headers=headers)
+            # In case of a MPU, copy only the manifest
+            req.get_response(self.app, 'PUT', headers=headers,
+                             query={'multipart-manifest': 'get'})
         else:
             req.get_response(self.app, 'POST')
 
