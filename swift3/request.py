@@ -540,7 +540,10 @@ class Request(swob.Request):
             obj = self.environ['PATH_INFO'][1:] or None
             return self.bucket_in_host, obj
 
-        bucket, obj = self.split_path(0, 2, True)
+        try:
+            bucket, obj = self.split_path(0, 2, True)
+        except ValueError:
+            raise InvalidURI(self.path)
 
         if bucket and not validate_bucket_name(bucket):
             # Ignore GET service case
