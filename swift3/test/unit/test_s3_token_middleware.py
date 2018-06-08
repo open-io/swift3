@@ -306,7 +306,7 @@ class S3TokenMiddlewareTestGood(S3TokenMiddlewareTestBase):
         req.get_response(self.middleware)
         self._assert_authorized(req, account_path='/v1/AUTH_FORCED_TENANT_ID/')
 
-    @mock.patch.object(requests, 'post')
+    @mock.patch.object(requests.Session, 'post')
     def test_insecure(self, MOCK_REQUEST):
         self.middleware = s3_token.filter_factory(
             {'insecure': 'True', 'auth_uri': 'http://example.com'})(self.app)
@@ -377,7 +377,7 @@ class S3TokenMiddlewareTestGood(S3TokenMiddlewareTestBase):
         self.assertEqual('Either auth_uri or auth_host required',
                          cm.exception.message)
 
-    @mock.patch.object(requests, 'post')
+    @mock.patch.object(requests.Session, 'post')
     def test_http_timeout(self, MOCK_REQUEST):
         self.middleware = s3_token.filter_factory({
             'http_timeout': '2',

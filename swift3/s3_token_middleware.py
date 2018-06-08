@@ -175,6 +175,8 @@ class S3Token(object):
         else:
             self._verify = None
 
+        self.session = requests.Session()
+
     def _deny_request(self, code):
         error_cls, message = {
             'AccessDenied': (HTTPUnauthorized, 'Access denied'),
@@ -196,10 +198,9 @@ class S3Token(object):
     def _json_request(self, creds_json):
         headers = {'Content-Type': 'application/json'}
         try:
-            response = requests.post('%s/v2.0/s3tokens' % self._request_uri,
-                                     headers=headers, data=creds_json,
-                                     verify=self._verify,
-                                     timeout=self._timeout)
+            response = self.session.post(
+                '%s/v2.0/s3tokens' % self._request_uri, headers=headers,
+                data=creds_json, verify=self._verify, timeout=self._timeout)
         except requests.exceptions.Timeout as e:
             self._logger.info('HTTP timeout: %s', e)
             raise self._deny_request('ServiceUnavailable')
