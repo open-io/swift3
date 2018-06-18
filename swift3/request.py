@@ -1025,6 +1025,12 @@ class Request(swob.Request):
                     HTTP_NO_CONTENT,
                 ],
             }
+            # If bucket creation succeeds after a timeout,
+            # we have to accept that the container already exists.
+            # We rely on the bucket_db to know if the bucket already
+            # exists or not.
+            if self.bucket_db:
+                code_map['PUT'].append(HTTP_NO_CONTENT)
         else:
             # Swift object access.
             code_map = {
@@ -1189,7 +1195,7 @@ class Request(swob.Request):
                     self.bucket_db.release(container)
             return resp
 
-        if self.bucket_db and method == 'PUT':
+        if self.bucket_db and method == 'PUT' and not obj:
             # Container creation failed, remove reservation
             self.bucket_db.release(container)
 
