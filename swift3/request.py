@@ -32,7 +32,7 @@ from swift.common.http import HTTP_OK, HTTP_CREATED, HTTP_ACCEPTED, \
     HTTP_BAD_REQUEST, HTTP_REQUEST_TIMEOUT, HTTP_SERVICE_UNAVAILABLE, \
     HTTP_CLIENT_CLOSED_REQUEST, is_success
 
-from swift.common.constraints import check_utf8
+from swift.common.constraints import check_utf8, valid_api_version
 from swift.proxy.controllers.base import get_container_info, \
     headers_to_container_info, get_object_info
 
@@ -592,11 +592,14 @@ class Request(swob.Request):
         :returns: a tuple of access_key and signature
         :raises: NotS3Request
         """
+        src = self.environ['PATH_INFO'].lstrip('/').split('/', 2)[0]
         if self._is_query_auth:
             return self._parse_query_authentication()
         elif self._is_header_auth:
             return self._parse_header_authentication()
-        elif self._parse_host() and self.bucket_db:
+        elif self.bucket_db and (
+                self._parse_host() or
+                (src and not valid_api_version(src))):
             # Anonymous request, we will have to resolve account name
             # from bucket name.
             return None, None
