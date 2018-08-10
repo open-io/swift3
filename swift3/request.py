@@ -41,7 +41,8 @@ from swift3.controllers import ServiceController, BucketController, \
     LocationController, LoggingStatusController, PartController, \
     TaggingController, \
     UploadController, UploadsController, VersioningController, \
-    UnsupportedController, S3AclController, LifecycleController
+    UnsupportedController, S3AclController, LifecycleController, \
+    CorsController
 from swift3.response import AccessDenied, InvalidArgument, InvalidDigest, \
     RequestTimeTooSkewed, Response, SignatureDoesNotMatch, \
     BucketAlreadyExists, BucketNotEmpty, EntityTooLarge, OperationAborted, \
@@ -900,9 +901,11 @@ class Request(swob.Request):
             return UploadsController
         if 'versioning' in self.params:
             return VersioningController
+        if 'cors' in self.params:
+            return CorsController
 
         unsupported = ('notification', 'policy', 'requestPayment', 'torrent',
-                       'website', 'cors', 'restore')
+                       'website', 'restore')
         if set(unsupported) & set(self.params):
             return UnsupportedController
 

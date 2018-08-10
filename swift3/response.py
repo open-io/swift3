@@ -684,3 +684,7 @@ class UserKeyMustBeSpecified(ErrorResponse):
     _status = '400 Bad Request'
     _msg = 'The bucket POST must contain the specified field name. If it is ' \
            'specified, please check the order of the fields.'
+
+class NoSuchCORSConfiguration(ErrorResponse):
+    _status = '404 Not Found'
+    _msg = 'The CORS configuration does not exist'

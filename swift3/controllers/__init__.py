@@ -28,6 +28,7 @@ from swift3.controllers.location import LocationController
 from swift3.controllers.logging import LoggingStatusController
 from swift3.controllers.tagging import TaggingController
 from swift3.controllers.versioning import VersioningController
+from swift3.controllers.cors import CorsController
 
 __all__ = [
     'Controller',
@@ -46,6 +47,7 @@ __all__ = [
     'LocationController',
     'LoggingStatusController',
     'VersioningController',
+    'CorsController',
 
     'UnsupportedController',
 ]
