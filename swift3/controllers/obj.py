@@ -23,6 +23,7 @@ from swift.common.utils import public
 
 from swift3.utils import S3Timestamp, VERSIONING_SUFFIX, versioned_object_name
 from swift3.controllers.base import Controller
+from swift3.controllers.cors import get_cors, cors_fill_headers
 from swift3.response import S3NotImplemented, InvalidRange, NoSuchKey, \
     InvalidArgument
 
@@ -73,6 +74,13 @@ class ObjectController(Controller):
             req.object_name = versioned_object_name(
                 req.object_name, req.params.pop('versionId'))
 
+        found = False
+        if req.headers.get('Origin'):
+            print("XXXX", req.headers.get('Origin'))
+            # we should get container sysmetadata
+            # and found if related site is found
+            found = True
+            rule = get_cors(self.app, req, req.headers.get('Origin'))
         try:
             resp = req.get_response(self.app)
         except NoSuchKey:
@@ -101,6 +109,9 @@ class ObjectController(Controller):
             if 'response-' + key in req.params:
                 resp.headers[key] = req.params['response-' + key]
 
+        if found:
+            # resp.headers['Access-Control-Allow-Origin'] = '*'
+            cors_fill_headers(req, resp, rule)
         return resp
 
     @public
@@ -204,3 +215,6 @@ class ObjectController(Controller):
             req.get_container_info(self.app)
             raise exc_type, exc_value, exc_traceback
         return resp
+
+    @public
+    def OPTIONS(self, req):
