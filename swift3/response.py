@@ -718,3 +718,9 @@ class CORSForbidden(ErrorResponse):
             raise InternalError()
         ErrorResponse.__init__(self, None, method=method,
                                resourcetype="BUCKET", *args, **kwargs)
+
+class CORSInvalidRequest(ErrorResponse):
+    _status = '400 Bad Request'
+
+    def __init__(self, msg, *args, **kwargs):
+        ErrorResponse.__init__(self, msg)

@@ -13,18 +13,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 import sys
 
 from swift.common.utils import public
 
 from swift3.controllers.base import Controller, bucket_operation
 from swift3.etree import fromstring, DocumentInvalid, XMLSyntaxError
-from swift3.response import HTTPOk, MalformedXML, NoSuchCORSConfiguration
+from swift3.response import HTTPOk, MalformedXML, NoSuchCORSConfiguration, \
+    CORSInvalidRequest
+
 from swift3.utils import LOGGER, sysmeta_header
 
 MAX_CORS_BODY_SIZE = 10240
 
 BUCKET_CORS_HEADER = sysmeta_header('bucket', 'cors')
+
+CORS_ALLOWED_HTTP_METHOD = ('GET', 'POST', 'PUT', 'HEAD', 'DELETE')
+
+
+def match(pattern, value):
+    '''helper function for wildcard'''
+    if '*' not in pattern:
+        return pattern == value
+    pattern = '^' + pattern.replace('*', '.*') + '$'
+    return re.match(pattern, value) is not None
 
 
 def get_cors(app, req, method, origin):
@@ -40,7 +53,7 @@ def get_cors(app, req, method, origin):
     rules = data.findall('CORSRule')
     for rule in rules:
         item = rule.find('AllowedOrigin')
-        if item.text == origin or item.text == '*':
+        if match(item.text, origin) or item.text == '*':
             # check AllowedMethod
             methods = rule.findall('AllowedMethod')
             for m in methods:
@@ -81,6 +94,33 @@ def cors_fill_headers(req, resp, rule):
     return resp
 
 
+def check_cors_rule(data):
+    '''Check at minima CORS rules'''
+    rules = data.findall('CORSRule')
+    for rule in rules:
+        origin = rule.find('AllowedOrigin')
+        if origin.text.count('*') > 1:
+            raise CORSInvalidRequest(
+                'AllowedOrigin "%s" can not have more than one wildcard'
+                % origin.text)
+
+        for method in rule.findall('AllowedMethod'):
+            if method.text not in CORS_ALLOWED_HTTP_METHOD:
+                raise CORSInvalidRequest(
+                    "Found unsupported HTTP method in CORS config. "
+                    "Unsupported method is %s" % method.text)
+        for exposed in rule.findall('ExposeHeader'):
+            if '*' in exposed.text:
+                raise CORSInvalidRequest(
+                    'ExposeHeader "%s" contains wildcard. We currently do '
+                    'not support wildcard for ExposeHeader.' % exposed.text)
+        for allowed in rule.findall('AllowedHeader'):
+            if allowed.text.count('*') > 1:
+                raise CORSInvalidRequest(
+                    'AllowedHeader "%s" can not have more than one wildcard.'
+                    % allowed.text)
+
+
 class CorsController(Controller):
     """
     Handles the following APIs:
@@ -111,13 +151,16 @@ class CorsController(Controller):
         """
         xml = req.xml(MAX_CORS_BODY_SIZE)
         try:
-            fromstring(xml, "CorsConfiguration")
+            data = fromstring(xml, "CorsConfiguration")
         except (XMLSyntaxError, DocumentInvalid):
             raise MalformedXML()
         except Exception as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             LOGGER.error(e)
             raise exc_type, exc_value, exc_traceback
+
+        # forbid wildcard for ExposeHeader
+        check_cors_rule(data)
 
         req.headers[BUCKET_CORS_HEADER] = xml
         resp = req._get_response(self.app, 'POST',

@@ -23,7 +23,8 @@ from swift.common.utils import public
 
 from swift3.utils import S3Timestamp, VERSIONING_SUFFIX, versioned_object_name
 from swift3.controllers.base import Controller
-from swift3.controllers.cors import get_cors, cors_fill_headers
+from swift3.controllers.cors import get_cors, cors_fill_headers, \
+    CORS_ALLOWED_HTTP_METHOD
 from swift3.response import S3NotImplemented, InvalidRange, NoSuchKey, \
     InvalidArgument, CORSForbidden, HTTPOk, CORSInvalidAccessControlRequest, \
     CORSOriginMissing
@@ -220,10 +221,11 @@ class ObjectController(Controller):
             raise CORSOriginMissing()
 
         method = req.headers.get('Access-Control-Request-Method')
-        if method not in ('POST', 'GET', 'DELETE', 'HEAD'):
+        if method not in CORS_ALLOWED_HTTP_METHOD:
             raise CORSInvalidAccessControlRequest(method=method)
 
         rule = get_cors(self.app, req, method, origin)
+        # FIXME(mbo): we should raise also NoSuchCORSConfiguration
         if rule is None:
             raise CORSForbidden(method)
 
