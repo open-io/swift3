@@ -14,14 +14,12 @@
 # limitations under the License.
 
 import sys
-import json
 
 from swift.common.utils import public
 
 from swift3.controllers.base import Controller, bucket_operation
 from swift3.etree import fromstring, DocumentInvalid, XMLSyntaxError
-from swift3.response import HTTPOk, NoSuchBucket, MalformedXML, \
-                            NoSuchBucket, NoSuchCORSConfiguration
+from swift3.response import HTTPOk, MalformedXML, NoSuchCORSConfiguration
 from swift3.utils import LOGGER, sysmeta_header
 
 MAX_CORS_BODY_SIZE = 10240
@@ -29,47 +27,58 @@ MAX_CORS_BODY_SIZE = 10240
 BUCKET_CORS_HEADER = sysmeta_header('bucket', 'cors')
 
 
-def get_cors(app, req, origin):
-    # should use memcached ?
+def get_cors(app, req, method, origin):
     resp = req._get_response(app, 'HEAD',
                              req.container_name, "")
-    print("XXXX", resp)
     body = resp.sysmeta_headers.get(BUCKET_CORS_HEADER)
     if not body:
-        print("XXXX no CORS for", req.container_name)
         return None
-    print("XXXX", body)
     data = fromstring(body, "CorsConfiguration")
 
     # we have to iterate over each to find matching origin
-    # (if origin is domain.com, does it mean http://domain.com and https://domain.com ?
-
-    print("XXXXX root", data.tag)
+    # whe have to manage wildcard in domain
     rules = data.findall('CORSRule')
-    print("XXXX found", len(rules), "rules")
     for rule in rules:
         item = rule.find('AllowedOrigin')
-        print("XXXX testing '%s' vs '%s'" % (item.text, origin))
-        # TODO(MB): does '*' should be only tested at end or
-        # do we have to respect order (even incorrect) from XML ?
-        # TODO(MB): manage if rule is something like http://*.example.com
         if item.text == origin or item.text == '*':
-            print("XXXXX found", origin)
-            return rule
-    else:
-        print("XXXXX not found")
+            # check AllowedMethod
+            methods = rule.findall('AllowedMethod')
+            for m in methods:
+                if m.text == method:
+                    hdrs = req.headers.get('Access-Control-Request-Headers')
+                    if hdrs:
+                        allowed = [x.text.lower()
+                                   for x in rule.findall('AllowedHeader')]
+
+                        # manage * as well for headers
+                        hdrs = [x.lower().strip() for x in hdrs.split(',')]
+                        if '*' not in allowed \
+                                and not all([hdr in allowed for hdr in hdrs]):
+                            # some requested headers are not found
+                            continue
+                    return rule
     return None
+
 
 def cors_fill_headers(req, resp, rule):
     def set_header_if_item(hdr, tag):
         x = rule.find(tag)
-        print(x)
-        if x != None:
+        if x is not None:
             resp.headers[hdr] = x.text
-        else:
-            print("XXXX %s not found in rule" % tag)
+
+    def set_header_if_items(hdr, tag):
+        vals = [m.text for m in rule.findall(tag)]
+        if len(vals):
+            resp.headers[hdr] = ', '.join(vals)
 
     set_header_if_item('Access-Control-Allow-Origin', 'AllowedOrigin')
+    set_header_if_item('Access-Control-Max-Age', 'MaxAgeSeconds')
+    set_header_if_items('Access-Control-Allow-Methods', 'AllowedMethod')
+    set_header_if_items('Access-Control-Expose-Headers', 'ExposeHeader')
+    set_header_if_items('Access-Control-', 'AllowedHeaders')
+    resp.headers['Access-Control-Allow-Credentials'] = 'true'
+
+    return resp
 
 
 class CorsController(Controller):
@@ -115,10 +124,9 @@ class CorsController(Controller):
                                  req.container_name, None)
         return resp
 
-
     @public
     @bucket_operation
-    def DELETE(self, req):
+    def DELETE(self, req):  # pylint: disable=invalid-name
         """
         Handles DELETE Bucket CORs.
         """

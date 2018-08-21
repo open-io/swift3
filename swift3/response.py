@@ -685,6 +685,36 @@ class UserKeyMustBeSpecified(ErrorResponse):
     _msg = 'The bucket POST must contain the specified field name. If it is ' \
            'specified, please check the order of the fields.'
 
+
 class NoSuchCORSConfiguration(ErrorResponse):
     _status = '404 Not Found'
     _msg = 'The CORS configuration does not exist'
+
+
+class CORSOriginMissing(ErrorResponse):
+    _status = '400 Bad Request'
+    _msg = 'Insufficient information. Origin request header needed.'
+
+
+class CORSInvalidAccessControlRequest(ErrorResponse):
+    _status = '400 Bad Request'
+    _msg = 'Invalid Access-Control-Request-Method: %s'
+
+    def __init__(self, method, *args, **kwargs):
+        if not method:
+            method = 'null'
+        ErrorResponse.__init__(self, self._msg % method, *args, **kwargs)
+
+
+class CORSForbidden(ErrorResponse):
+    _status = '403 Forbidden'
+    _msg = 'CORSResponse: This CORS request is not allowed. This is usually ' \
+           'because the evalution of Origin, request method / ' \
+           'Access-Control-Request-Method or Access-Control-Request-Headers ' \
+           'are not whitelisted by the resource\'s CORS spec.'
+
+    def __init__(self, method, *args, **kwargs):
+        if not method:
+            raise InternalError()
+        ErrorResponse.__init__(self, None, method=method,
+                               resourcetype="BUCKET", *args, **kwargs)

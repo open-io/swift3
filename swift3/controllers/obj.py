@@ -25,7 +25,8 @@ from swift3.utils import S3Timestamp, VERSIONING_SUFFIX, versioned_object_name
 from swift3.controllers.base import Controller
 from swift3.controllers.cors import get_cors, cors_fill_headers
 from swift3.response import S3NotImplemented, InvalidRange, NoSuchKey, \
-    InvalidArgument
+    InvalidArgument, CORSForbidden, HTTPOk, CORSInvalidAccessControlRequest, \
+    CORSOriginMissing
 
 
 class ObjectController(Controller):
@@ -74,13 +75,10 @@ class ObjectController(Controller):
             req.object_name = versioned_object_name(
                 req.object_name, req.params.pop('versionId'))
 
-        found = False
+        cors_rule = None
         if req.headers.get('Origin'):
-            print("XXXX", req.headers.get('Origin'))
-            # we should get container sysmetadata
-            # and found if related site is found
-            found = True
-            rule = get_cors(self.app, req, req.headers.get('Origin'))
+            cors_rule = get_cors(self.app, req, req.method,
+                                 req.headers.get('Origin'))
         try:
             resp = req.get_response(self.app)
         except NoSuchKey:
@@ -109,9 +107,8 @@ class ObjectController(Controller):
             if 'response-' + key in req.params:
                 resp.headers[key] = req.params['response-' + key]
 
-        if found:
-            # resp.headers['Access-Control-Allow-Origin'] = '*'
-            cors_fill_headers(req, resp, rule)
+        if cors_rule:
+            cors_fill_headers(req, resp, cors_rule)
         return resp
 
     @public
@@ -218,3 +215,19 @@ class ObjectController(Controller):
 
     @public
     def OPTIONS(self, req):
+        origin = req.headers.get('Origin')
+        if not origin:
+            raise CORSOriginMissing()
+
+        method = req.headers.get('Access-Control-Request-Method')
+        if method not in ('POST', 'GET', 'DELETE', 'HEAD'):
+            raise CORSInvalidAccessControlRequest(method=method)
+
+        rule = get_cors(self.app, req, method, origin)
+        if rule is None:
+            raise CORSForbidden(method)
+
+        resp = HTTPOk(body=None)
+        del resp.headers['Content-Type']
+
+        return cors_fill_headers(req, resp, rule)
