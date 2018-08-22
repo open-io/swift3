@@ -498,7 +498,14 @@ class TestSwift3Middleware(Swift3TestCase):
         self._test_unsupported_resource('website')
 
     def test_cors(self):
-        self._test_unsupported_resource('cors')
+        self.swift.register('HEAD', '/v1/AUTH_X/bucket',
+                            swob.HTTPNoContent, {}, None)
+        req = Request.blank('/bucket?cors',
+                            environ={'REQUEST_METHOD': 'GET',
+                                     'HTTP_AUTHORIZATION': 'AWS X:Y:Z'},
+                            headers={'Date': self.get_date_header()})
+        status, headers, body = self.call_swift3(req)
+        self.assertEqual(self._get_error_code(body), 'NoSuchCORSConfiguration')
 
     def test_restore(self):
         self._test_unsupported_resource('restore')
