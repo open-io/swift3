@@ -36,6 +36,8 @@ def match(pattern, value):
     '''helper function for wildcard'''
     if '*' not in pattern:
         return pattern == value
+    # protect dot as we keep them as is
+    pattern = pattern.replace('.', '\\.')
     pattern = '^' + pattern.replace('*', '.*') + '$'
     return re.match(pattern, value) is not None
 
