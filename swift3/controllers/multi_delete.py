@@ -25,7 +25,8 @@ from swift3.response import HTTPOk, S3NotImplemented, \
 from swift3.cfg import CONF
 from swift3.utils import LOGGER
 
-MAX_MULTI_DELETE_BODY_SIZE = 61365
+# 1000 keys with len 1024 and XML overhead
+MAX_MULTI_DELETE_BODY_SIZE = 1536000
 
 
 class MultiObjectDeleteController(Controller):
