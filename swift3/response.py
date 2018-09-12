@@ -111,10 +111,10 @@ class Response(ResponseBase, swob.Response):
                 # for delete slo
                 self.is_slo = config_true_value(val)
 
-        if self.is_slo and 'etag' in headers:
+        if self.is_slo:  # and 'etag' in headers
             # Multipart uploads in AWS have ETags like
             #   <MD5(part_etag1 || ... || part_etagN)>-<number of parts>
-            if '-' not in headers['etag']:
+            if '-' not in headers.get('etag', ''):
                 if 's3_etag' in headers.get('content-type', ''):
                     # ETag was computed at upload, and saved in content-type
                     ctype, s3_etag = extract_s3_etag(headers['content-type'])
