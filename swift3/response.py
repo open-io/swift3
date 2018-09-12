@@ -147,6 +147,7 @@ class Response(ResponseBase, swob.Response):
         resp = Response(status=sw_resp.status, headers=sw_resp.headers,
                         request=sw_resp.request, body=body, app_iter=app_iter,
                         conditional_response=sw_resp.conditional_response)
+        resp.accept_ranges = sw_resp.accept_ranges
         resp.environ.update(sw_resp.environ)
 
         return resp
