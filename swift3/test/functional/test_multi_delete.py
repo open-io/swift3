@@ -173,9 +173,9 @@ class TestSwift3MultiDelete(Swift3FunctionalTestCase):
                                    query=query)
         self.assertEqual(get_error_code(body), 'MalformedXML')
 
-        # specified xml size is over 61365 bytes, but number of objects are
-        # smaller than CONF.max_multi_delete_objects.
-        obj = 'a' * 1024
+        # specified xml size is over MAX_MULTI_DELETE_BODY_SIZE bytes,
+        # but number of objects are smaller than CONF.max_multi_delete_objects.
+        obj = 'aa' * 1024
         req_objects = [obj + str(var) for var in xrange(999)]
         xml = self._gen_multi_delete_xml(req_objects)
         self.assertTrue(len(xml.encode('utf-8')) > MAX_MULTI_DELETE_BODY_SIZE)
