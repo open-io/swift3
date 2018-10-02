@@ -223,7 +223,8 @@ class TestSwift3Bucket(Swift3TestCase):
                                      'Date': self.get_date_header()})
         status, headers, body = self.call_swift3(req)
         elem = fromstring(body, 'ListBucketResult')
-        self.assertIsNotNone(elem.find('./NextContinuationToken'))
+        self.assertEqual(elem.find('./NextContinuationToken').text,
+                         'd2l0aCBzcGFjZQ==')
         self.assertEqual(elem.find('./KeyCount').text, '4')
         self.assertEqual(elem.find('./IsTruncated').text, 'true')
 
@@ -233,7 +234,7 @@ class TestSwift3Bucket(Swift3TestCase):
                                      'Date': self.get_date_header()})
         status, headers, body = self.call_swift3(req)
         elem = fromstring(body, 'ListBucketResult')
-        self.assertIsNotNone(elem.find('./NextContinuationToken'))
+        self.assertEqual(elem.find('./NextContinuationToken').text, 'YnV0Lw==')
         self.assertEqual(elem.find('./KeyCount').text, '2')
         self.assertEqual(elem.find('./IsTruncated').text, 'true')
 
@@ -397,7 +398,7 @@ class TestSwift3Bucket(Swift3TestCase):
         self.assertEqual(status.split()[0], '200')
         elem = fromstring(body, 'ListBucketResult')
         next_token = elem.find('./NextContinuationToken')
-        self.assertIsNotNone(next_token)
+        self.assertEqual(next_token.text, 'dmlvbGE=')
         self.assertEqual(elem.find('./MaxKeys').text, '2')
         self.assertEqual(elem.find('./IsTruncated').text, 'true')
 
@@ -412,6 +413,7 @@ class TestSwift3Bucket(Swift3TestCase):
         elem = fromstring(body, 'ListBucketResult')
         names = [o.find('./Key').text for o in elem.iterchildren('Contents')]
         self.assertEqual(names[0], 'lily')
+        self.assertEqual(elem.find('./ContinuationToken').text, 'dmlvbGE=')
 
     def test_bucket_GET_subdir_with_delimiter_max_keys(self):
         bucket_name = 'junk-subdir'

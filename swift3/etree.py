@@ -97,7 +97,8 @@ def tostring(tree, encoding_type=None, use_s3ns=True):
         for e in tree.iter():
             # Some elements are not url-encoded even when we specify
             # encoding_type=url.
-            blacklist = ['LastModified', 'ID', 'DisplayName', 'Initiated']
+            blacklist = ['LastModified', 'ID', 'DisplayName', 'Initiated',
+                         'ContinuationToken', 'NextContinuationToken']
             if e.tag not in blacklist:
                 if isinstance(e.text, basestring):
                     e.text = quote(e.text)

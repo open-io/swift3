@@ -357,6 +357,7 @@ class TestSwift3Bucket(Swift3FunctionalTestCase):
         self.assertEqual(elem.find('IsTruncated').text, 'true')
         next_cont_token_elem = elem.find('NextContinuationToken')
         self.assertIsNotNone(next_cont_token_elem)
+        self.assertEqual(next_cont_token_elem.text, 'b2JqZWN0Mg==')
         resp_objects = elem.findall('./Contents')
         self.assertEqual(len(list(resp_objects)), len(expect_objects))
         for i, o in enumerate(resp_objects):
