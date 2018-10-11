@@ -137,7 +137,7 @@ class TestSwift3Cors(Swift3TestCase):
                             HTTPNoContent, {}, None)
 
         ret = self._cors_PUT('/test-cors', cors=RULE)
-        self.assertEqual(ret[0], '204 No Content')
+        self.assertEqual(ret[0], '200 OK')
 
         xml = build_xml(RULE)
         self.swift.register('HEAD', '/v1/AUTH_test/test-cors',

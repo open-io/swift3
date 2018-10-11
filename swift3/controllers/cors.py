@@ -20,10 +20,12 @@ from swift.common.utils import public
 
 from swift3.controllers.base import Controller, bucket_operation
 from swift3.etree import fromstring, DocumentInvalid, XMLSyntaxError
-from swift3.response import HTTPOk, MalformedXML, NoSuchCORSConfiguration, \
-    CORSInvalidRequest
+from swift3.response import HTTPOk, HTTPNoContent, MalformedXML, \
+    NoSuchCORSConfiguration, CORSInvalidRequest
 
 from swift3.utils import LOGGER, sysmeta_header
+
+VERSION_ID_HEADER = 'X-Object-Sysmeta-Version-Id'
 
 MAX_CORS_BODY_SIZE = 10240
 
@@ -132,6 +134,17 @@ class CorsController(Controller):
      - DELETE Bucket CORS
 
     """
+
+    @staticmethod
+    def convert(req, resp, code, response):
+        if resp.status_int == code:
+            headers = dict()
+            if req.object_name:
+                headers['x-amz-version-id'] = \
+                    resp.sw_headers[VERSION_ID_HEADER]
+            return response(headers=headers)
+        return resp
+
     @public
     @bucket_operation
     def GET(self, req):  # pylint: disable=invalid-name
@@ -167,7 +180,7 @@ class CorsController(Controller):
         req.headers[BUCKET_CORS_HEADER] = xml
         resp = req._get_response(self.app, 'POST',
                                  req.container_name, None)
-        return resp
+        return self.convert(req, resp, 204, HTTPOk)
 
     @public
     @bucket_operation
@@ -176,5 +189,6 @@ class CorsController(Controller):
         Handles DELETE Bucket CORs.
         """
         req.headers[BUCKET_CORS_HEADER] = ''
-        return req._get_response(self.app, 'POST',
+        resp = req._get_response(self.app, 'POST',
                                  req.container_name, None)
+        return self.convert(req, resp, 202, HTTPNoContent)

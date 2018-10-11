@@ -719,6 +719,7 @@ class CORSForbidden(ErrorResponse):
         ErrorResponse.__init__(self, None, method=method,
                                resourcetype="BUCKET", *args, **kwargs)
 
+
 class CORSInvalidRequest(ErrorResponse):
     _status = '400 Bad Request'
 
