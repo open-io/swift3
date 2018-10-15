@@ -22,11 +22,14 @@ from swift.common.middleware.versioned_writes import DELETE_MARKER_CONTENT_TYPE
 from swift.common.utils import json, public, config_true_value
 
 from swift3.controllers.base import Controller
+from swift3.controllers.cors import get_cors, cors_fill_headers, \
+    CORS_ALLOWED_HTTP_METHOD
 from swift3.etree import Element, SubElement, tostring, fromstring, \
     XMLSyntaxError, DocumentInvalid
 from swift3.response import HTTPOk, S3NotImplemented, InvalidArgument, \
     MalformedXML, InvalidLocationConstraint, NoSuchBucket, \
-    BucketNotEmpty, InternalError, ServiceUnavailable, NoSuchKey
+    BucketNotEmpty, InternalError, ServiceUnavailable, NoSuchKey, \
+    CORSForbidden, CORSInvalidAccessControlRequest, CORSOriginMissing
 from swift3.cfg import CONF
 from swift3.utils import LOGGER, MULTIUPLOAD_SUFFIX, VERSIONING_SUFFIX, \
     extract_s3_etag
@@ -322,3 +325,23 @@ class BucketController(Controller):
         Handle POST Bucket request
         """
         raise S3NotImplemented()
+
+    @public
+    def OPTIONS(self, req):
+        origin = req.headers.get('Origin')
+        if not origin:
+            raise CORSOriginMissing()
+
+        method = req.headers.get('Access-Control-Request-Method')
+        if method not in CORS_ALLOWED_HTTP_METHOD:
+            raise CORSInvalidAccessControlRequest(method=method)
+
+        rule = get_cors(self.app, req, method, origin)
+        # FIXME(mbo): we should raise also NoSuchCORSConfiguration
+        if rule is None:
+            raise CORSForbidden(method)
+
+        resp = HTTPOk(body=None)
+        del resp.headers['Content-Type']
+
+        return cors_fill_headers(req, resp, rule)
