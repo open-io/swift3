@@ -50,8 +50,9 @@ from swift3.response import AccessDenied, InvalidArgument, InvalidDigest, \
     MissingContentLength, InvalidStorageClass, S3NotImplemented, InvalidURI, \
     MalformedXML, InvalidRequest, RequestTimeout, InvalidBucketName, \
     BadDigest, AuthorizationHeaderMalformed, \
-    AuthorizationQueryParametersError, ServiceUnavailable
-from swift3.exception import NotS3Request, BadSwiftRequest
+    AuthorizationQueryParametersError, ServiceUnavailable, \
+    BadRequest
+from swift3.exception import NotS3Request
 from swift3.utils import utf8encode, LOGGER, check_path_header, S3Timestamp, \
     mktime, MULTIUPLOAD_SUFFIX
 from swift3.cfg import CONF
@@ -1219,7 +1220,7 @@ class Request(swob.Request):
                 raise err_resp()
 
         if status == HTTP_BAD_REQUEST:
-            raise BadSwiftRequest(err_msg)
+            raise BadRequest(err_msg)
         if status == HTTP_UNAUTHORIZED:
             raise SignatureDoesNotMatch()
         if status == HTTP_FORBIDDEN:

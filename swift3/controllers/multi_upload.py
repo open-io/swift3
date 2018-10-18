@@ -61,7 +61,6 @@ from swift3.response import InvalidArgument, ErrorResponse, MalformedXML, \
     InvalidPart, BucketAlreadyExists, EntityTooSmall, InvalidPartOrder, \
     InvalidRequest, HTTPOk, HTTPNoContent, NoSuchKey, NoSuchUpload, \
     NoSuchBucket, InvalidRange
-from swift3.exception import BadSwiftRequest
 from swift3.utils import LOGGER, unique_id, MULTIUPLOAD_SUFFIX, S3Timestamp, \
     extract_s3_etag
 from swift3.etree import Element, SubElement, fromstring, tostring, \
@@ -670,8 +669,8 @@ class UploadController(Controller):
                 # just write it directly
                 resp = req.get_response(self.app, 'PUT', body='',
                                         headers=headers)
-        except BadSwiftRequest as e:
-            msg = str(e)
+        except ErrorResponse as e:
+            msg = str(e._msg)
             expected_msg = 'too small; each segment must be at least 1 byte'
             if expected_msg in msg:
                 # FIXME: AWS S3 allows a smaller object than 5 MB if there is

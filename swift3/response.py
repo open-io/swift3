@@ -259,6 +259,11 @@ class BadDigest(ErrorResponse):
     _msg = 'The Content-MD5 you specified did not match what we received.'
 
 
+class BadRequest(ErrorResponse):
+    """Generic bad request response for when there is no dedicated one."""
+    _status = '400 Bad Request'
+
+
 class BucketAlreadyExists(ErrorResponse):
     _status = '409 Conflict'
     _msg = 'The requested bucket name is not available. The bucket ' \
