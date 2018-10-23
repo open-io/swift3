@@ -351,6 +351,8 @@ class UploadsController(Controller):
             nextkeymarker = uploads[-1]['key']
 
         result_elem = Element('ListMultipartUploadsResult')
+        if encoding_type is not None:
+            result_elem.encoding_type = encoding_type
         SubElement(result_elem, 'Bucket').text = req.container_name
         SubElement(result_elem, 'KeyMarker').text = keymarker
         SubElement(result_elem, 'UploadIdMarker').text = uploadid
@@ -497,6 +499,8 @@ class UploadController(Controller):
             last_part = os.path.basename(o['name'])
 
         result_elem = Element('ListPartsResult')
+        if encoding_type is not None:
+            result_elem.encoding_type = encoding_type
         SubElement(result_elem, 'Bucket').text = req.container_name
         SubElement(result_elem, 'Key').text = req.object_name
         SubElement(result_elem, 'UploadId').text = upload_id

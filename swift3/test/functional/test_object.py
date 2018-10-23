@@ -50,7 +50,7 @@ class TestSwift3Object(Swift3FunctionalTestCase):
         self.assertCommonResponseHeaders(headers, etag)
 
     def test_object(self):
-        obj = 'object name with %-sign'
+        obj = 'object name with %-sign and control\x0bchar'
         content = 'abc123'
         etag = md5(content).hexdigest()
 

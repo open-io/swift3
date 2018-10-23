@@ -166,6 +166,10 @@ class BucketController(Controller):
             elem = Element('ListVersionsResult')
         else:
             elem = Element('ListBucketResult')
+
+        if encoding_type is not None:
+            elem.encoding_type = encoding_type
+
         SubElement(elem, 'Name').text = req.container_name
         SubElement(elem, 'Prefix').text = req.params.get('prefix')
 

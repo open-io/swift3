@@ -24,6 +24,8 @@ from swift3.utils import LOGGER, camel_to_snake, utf8encode, utf8decode
 
 XMLNS_S3 = 'http://s3.amazonaws.com/doc/2006-03-01/'
 XMLNS_XSI = 'http://www.w3.org/2001/XMLSchema-instance'
+URLENCODE_BLACKLIST = ['LastModified', 'ID', 'DisplayName', 'Initiated',
+                       'ContinuationToken', 'NextContinuationToken']
 
 
 class XMLSyntaxError(S3Exception):
@@ -97,11 +99,14 @@ def tostring(tree, encoding_type=None, use_s3ns=True):
         for e in tree.iter():
             # Some elements are not url-encoded even when we specify
             # encoding_type=url.
-            blacklist = ['LastModified', 'ID', 'DisplayName', 'Initiated',
-                         'ContinuationToken', 'NextContinuationToken']
-            if e.tag not in blacklist:
+            if e.tag not in URLENCODE_BLACKLIST:
                 if isinstance(e.text, basestring):
-                    e.text = quote(e.text)
+                    # If the value contains control chars,
+                    # it may be urlencoded already.
+                    if e.get('urlencoded', None) == 'True':
+                        e.attrib.pop('urlencoded')
+                    else:
+                        e.text = quote(e.text)
 
     return lxml.etree.tostring(tree, xml_declaration=True, encoding='UTF-8')
 
@@ -122,6 +127,10 @@ class _Element(lxml.etree.ElementBase):
         # pylint: disable-msg=E1002
         super(_Element, self).__init__(*args, **kwargs)
 
+    def _init(self, *args, **kwargs):
+        super(_Element, self)._init(*args, **kwargs)
+        self.encoding_type = None
+
     @property
     def text(self):
         """
@@ -131,7 +140,21 @@ class _Element(lxml.etree.ElementBase):
 
     @text.setter
     def text(self, value):
-        lxml.etree.ElementBase.text.__set__(self, utf8decode(value))
+        decoded = utf8decode(value)
+        try:
+            lxml.etree.ElementBase.text.__set__(self, decoded)
+        except ValueError:
+            root = self.getroottree().getroot()
+            # URL encoding is usually done at the end, but sometimes we get
+            # control characters that are rejected by the XML encoder.
+            # If we are going to urlencode the value, do it now.
+            if root.encoding_type != 'url' or \
+                    self.tag in URLENCODE_BLACKLIST:
+                raise
+            lxml.etree.ElementBase.text.__set__(self, quote(decoded))
+            # The deepcopy seems to not copy custom fields, thus we use
+            # an attribute which will be deleted when marshalling.
+            self.set('urlencoded', 'True')
 
 
 parser_lookup = lxml.etree.ElementDefaultClassLookup(element=_Element)
