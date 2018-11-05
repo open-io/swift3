@@ -127,7 +127,8 @@ min_segment_size = 5242880
 # globally unique, and will enable anonymous requests (provided that ACLs
 # are enabled and set to public-read for the requested object).
 # Notice that anonymous requests only work with virtual-hosted style
-# requests (you must define storage_domain).
+# requests (you must define storage_domain) or by enabling 
+# allow_anymous_path_request
 #
 #bucket_db_enabled = false
 #
@@ -143,6 +144,10 @@ min_segment_size = 5242880
 #
 # Prefix for bucket names in the database.
 #bucket_db_prefix = s3bucket:
+#
+# Allow anymous request without virtual-hosted style
+# (bucket_db_enabled is required)
+#allow_anymous_path_request = true
 
 # Note: Put after slo, dlo in the pipeline.
 # If you don't put it in the pipeline, it will be inserted automatically.

@@ -600,9 +600,10 @@ class Request(swob.Request):
             return self._parse_query_authentication()
         elif self._is_header_auth:
             return self._parse_header_authentication()
-        elif self.bucket_db and (src and src != 'auth') \
-                and (self._parse_host() or
-                     (src and not valid_api_version(src))):
+        # TODO(mb): check src against auth_prefix's tempauth
+        elif self.bucket_db and CONF.allow_anymous_path_request and \
+                src and src != 'auth' and \
+                (self._parse_host() or (src and not valid_api_version(src))):
             # Anonymous request, we will have to resolve account name
             # from bucket name.
             return None, None
