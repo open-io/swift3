@@ -16,7 +16,7 @@
 import unittest
 
 from swift.common.swob import Request, HTTPCreated, HTTPNoContent, \
-    HTTPNotFound
+    HTTPNotFound, HTTPOk
 
 from swift3.utils import VERSIONING_SUFFIX
 
@@ -149,6 +149,50 @@ class TestSwift3Versioning(Swift3TestCase):
         self.assertIn(('X-Remove-History-Location', 'true'),
                       calls[-1][2].items())
 
+    def _GET_object_versions(self, path):
+        objects = '''[
+        {"bytes": 43740,
+         "content_type": "application/octet-stream",
+         "hash": "029ea7399fb3f89d86e537fd24de027e",
+         "last_modified": "2018-11-15T10:26:09.000000",
+         "name": "magic"},
+        {"subdir": "sub/"}
+        ]'''
+        objects_versions = '''[
+        {"bytes": 113,
+         "content_type": "application/octet-stream",
+         "hash": "8de4989188593b0419d387099c9e9872",
+         "last_modified": "2018-11-15T10:25:59.000000",
+         "name": "005magic/1542277559206248",
+         "version": 1542277559206248}
+        ]'''
+        query = 'delimiter=/&format=json&limit=1001'
+        query2 = 'delimiter=/&format=json&limit=1001&reverse=true'
+        self.swift.register('HEAD', '/v1/AUTH_test/bucket/magic', HTTPOk,
+                            {'X-Object-Sysmeta-Version-Id': '1542277569223672',
+                             'Content-Length': '43740',
+                             'Content-Type': 'application/octet-stream',
+                             'Last-Modified': 'Thu, 15 Nov 2018 10:26:09 GMT',
+                             'Etag': '029ea7399fb3f89d86e537fd24de027e'},
+                            None)
+        self.swift.register('GET', '/v1/AUTH_test/bucket?%s' % (query, ),
+                            HTTPOk, {}, objects)
+        self.swift.register(
+            'GET', '/v1/AUTH_test/%s?%s' % (VERSIONING_BUCKET, query2, ),
+            HTTPOk, {}, objects_versions)
+        req = Request.blank('%s?versions&delimiter=/' % path,
+                            environ={'REQUEST_METHOD': 'GET'},
+                            headers={'Authorization': 'AWS test:tester:hmac',
+                                     'Date': self.get_date_header()})
+        status, headers, body = self.call_swift3(req)
+        self.assertEqual(status.split()[0], '200')
+        elem = fromstring(body, 'ListVersionsResult')
+        versions = elem.findall('Version')
+        self.assertEqual(len(versions), 2)
+        for version in versions:
+            key = version.find('Key')
+            self.assertEqual(key.text, 'magic')
+
     def test_object_versioning_GET_not_configured(self):
         self._versioning_GET_not_configured('/bucket/object')
 
@@ -184,6 +228,9 @@ class TestSwift3Versioning(Swift3TestCase):
 
     def test_bucket_versioning_PUT_suspended(self):
         self._versioning_PUT_suspended('/bucket')
+
+    def test_bucket_versioning_GET_object_versions(self):
+        self._GET_object_versions('/bucket')
 
 
 if __name__ == '__main__':

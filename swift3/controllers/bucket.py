@@ -154,9 +154,9 @@ class BucketController(Controller):
                 # the bucket may not be versioned
                 pass
             req.container_name = req.container_name[:-len(VERSIONING_SUFFIX)]
-            objects.sort(key=lambda o: o['name'])
+            objects.sort(key=lambda o: o.get('name') or o.get('subdir'))
             for o in objects:
-                if not o.get('version_id'):
+                if 'subdir' not in o and not o.get('version_id'):
                     info = req.get_object_info(
                         self.app, object_name=o['name'])
                     o['sysmeta_version_id'] = info.get('sysmeta', {}).get(
