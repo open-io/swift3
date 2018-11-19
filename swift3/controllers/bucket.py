@@ -158,7 +158,7 @@ class BucketController(Controller):
             for o in objects:
                 if 'subdir' not in o and not o.get('version_id'):
                     info = req.get_object_info(
-                        self.app, object_name=o['name'])
+                        self.app, object_name=o['name'].encode('utf-8'))
                     o['sysmeta_version_id'] = info.get('sysmeta', {}).get(
                         'version-id', 'null')
 
