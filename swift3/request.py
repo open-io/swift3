@@ -42,7 +42,7 @@ from swift3.controllers import ServiceController, BucketController, \
     TaggingController, \
     UploadController, UploadsController, VersioningController, \
     UnsupportedController, S3AclController, LifecycleController, \
-    CorsController
+    CorsController, UniqueBucketController
 from swift3.response import AccessDenied, InvalidArgument, InvalidDigest, \
     RequestTimeTooSkewed, Response, SignatureDoesNotMatch, \
     BucketAlreadyExists, BucketNotEmpty, EntityTooLarge, OperationAborted, \
@@ -913,6 +913,8 @@ class Request(swob.Request):
 
         if self.is_object_request:
             return ObjectController
+        if self.bucket_db:
+            return UniqueBucketController
         return BucketController
 
     @property
@@ -1165,11 +1167,6 @@ class Request(swob.Request):
             if self._is_anonymous and method == 'HEAD':
                 # Allow anonymous HEAD requests to read object ACLs
                 sw_req.environ['swift.authorize_override'] = True
-            elif method == 'PUT' and container and not obj:
-                # We are about to create a container, reserve its name
-                can_create = self.bucket_db.reserve(container, self.account)
-                if not can_create:
-                    raise BucketAlreadyExists(container)
 
         sw_resp = sw_req.get_response(app)
 
@@ -1197,18 +1194,7 @@ class Request(swob.Request):
                                               sw_req.environ, app)
 
         if status in success_codes:
-            if self.bucket_db and container and not obj:
-                if method == 'PUT':
-                    # Container creation succeeded, confirm reservation
-                    self.bucket_db.set_owner(container, self.account)
-                elif method == 'DELETE':
-                    # Container deletion succeeded, reset owner
-                    self.bucket_db.release(container)
             return resp
-
-        if self.bucket_db and method == 'PUT' and not obj:
-            # Container creation failed, remove reservation
-            self.bucket_db.release(container)
 
         err_msg = resp.body
 

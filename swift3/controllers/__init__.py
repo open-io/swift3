@@ -17,6 +17,7 @@ from swift3.controllers.base import Controller, UnsupportedController
 from swift3.controllers.service import ServiceController
 from swift3.controllers.bucket import BucketController
 from swift3.controllers.obj import ObjectController
+from swift3.controllers.unique_bucket import UniqueBucketController
 
 from swift3.controllers.acl import AclController
 from swift3.controllers.s3_acl import S3AclController
@@ -35,9 +36,11 @@ __all__ = [
     'ServiceController',
     'BucketController',
     'ObjectController',
+    'UniqueBucketController',
 
     'AclController',
     'S3AclController',
+    'CorsController',
     'LifecycleController',
     'MultiObjectDeleteController',
     'PartController',
@@ -47,7 +50,6 @@ __all__ = [
     'LocationController',
     'LoggingStatusController',
     'VersioningController',
-    'CorsController',
 
     'UnsupportedController',
 ]

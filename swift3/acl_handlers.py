@@ -82,7 +82,7 @@ def get_acl(headers, body, bucket_owner, object_owner=None):
 
 def get_acl_handler(controller_name):
     for base_klass in [BaseAclHandler, MultiUploadAclHandler,
-                       BucketAclHandler]:
+                       BucketAclHandler, UniqueBucketAclHandler]:
         # pylint: disable-msg=E1101
         for handler in base_klass.__subclasses__():
             handler_suffix_len = len('AclHandler') \
@@ -200,6 +200,11 @@ class BucketAclHandler(BaseAclHandler):
 class VersioningAclHandler(BucketAclHandler):
     def POST(self, app):
         return self._handle_acl(app, 'POST')
+
+
+class UniqueBucketAclHandler(BucketAclHandler):
+    """Handle ACL requests for UniqueBucketController."""
+    pass
 
 
 class ObjectAclHandler(BaseAclHandler):
