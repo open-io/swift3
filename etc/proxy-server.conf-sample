@@ -127,7 +127,7 @@ min_segment_size = 5242880
 # globally unique, and will enable anonymous requests (provided that ACLs
 # are enabled and set to public-read for the requested object).
 # Notice that anonymous requests only work with virtual-hosted style
-# requests (you must define storage_domain) or by enabling 
+# requests (you must define storage_domain) or by enabling
 # allow_anymous_path_request
 #
 #bucket_db_enabled = false
@@ -193,6 +193,9 @@ auth_uri = http://keystonehost:35357/
 
 # Connect/read timeout to use when communicating with Keystone
 http_timeout = 10.0
+
+# Number of retries in case of BadStatusLine errors
+#max_retries = 1
 
 # SSL-related options
 # insecure = False

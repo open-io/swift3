@@ -35,6 +35,7 @@ import base64
 import json
 
 import requests
+import httplib
 import six
 from six.moves import urllib
 
@@ -160,6 +161,7 @@ class S3Token(object):
         if parsed.query or parsed.fragment or '@' in parsed.netloc:
             raise ConfigFileError('Invalid auth_uri; must not include '
                                   'username, query, or fragment')
+        self._max_attempts = 1 + int(conf.get('max_retries', 1))
 
         # SSL
         insecure = config_true_value(conf.get('insecure'))
@@ -197,21 +199,41 @@ class S3Token(object):
 
     def _json_request(self, creds_json):
         headers = {'Content-Type': 'application/json'}
-        try:
-            response = self.session.post(
-                '%s/v2.0/s3tokens' % self._request_uri, headers=headers,
-                data=creds_json, verify=self._verify, timeout=self._timeout)
-        except requests.exceptions.Timeout as e:
-            self._logger.info('HTTP timeout: %s', e)
-            raise self._deny_request('ServiceUnavailable')
-        except requests.exceptions.RequestException as e:
-            self._logger.info('HTTP connection exception: %s', e)
-            raise self._deny_request('InvalidURI')
+        for attempt in range(self._max_attempts):
+            try:
+                response = self.session.post(
+                    '%s/v2.0/s3tokens' % self._request_uri, headers=headers,
+                    data=creds_json, verify=self._verify,
+                    timeout=self._timeout)
+            except requests.exceptions.Timeout as e:
+                self._logger.info('HTTP timeout: %s', e)
+                raise self._deny_request('ServiceUnavailable')
+            except httplib.BadStatusLine as e:
+                # See https://github.com/requests/requests/issues/2364
+                self._logger.warning('HTTP request raised %s', e)
+                if attempt + 1 >= self._max_attempts:
+                    raise self._deny_request('ServiceUnavailable')
+                self._logger.warning('retrying (%d/%d)',
+                                     attempt + 1, self._max_attempts)
+                continue
+            except requests.exceptions.RequestException as e:
+                self._logger.info('HTTP connection exception: %s', e)
+                raise self._deny_request('InvalidURI')
 
-        if response.status_code < 200 or response.status_code >= 300:
-            self._logger.debug('Keystone reply error: status=%s reason=%s',
-                               response.status_code, response.reason)
-            raise self._deny_request('AccessDenied')
+            if response.status_code >= 500:
+                self._logger.warning(
+                    'Keystone reply error: status=%s reason=%s',
+                    response.status_code, response.reason)
+                if attempt + 1 >= self._max_attempts:
+                    raise self._deny_request('ServiceUnavailable')
+                self._logger.warning('retrying (%d/%d)',
+                                     attempt + 1, self._max_attempts)
+                continue
+            elif response.status_code < 200 or response.status_code >= 300:
+                self._logger.debug('Keystone reply error: status=%s reason=%s',
+                                   response.status_code, response.reason)
+                raise self._deny_request('AccessDenied')
+            break
 
         return response
 
