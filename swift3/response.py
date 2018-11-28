@@ -107,6 +107,8 @@ class Response(ResponseBase, swob.Response):
                           'etag', 'last-modified', 'x-robots-tag',
                           'cache-control', 'expires', 'x-amz-version-id'):
                 headers[key] = val
+            elif _key == 'x-object-sysmeta-version-id':
+                headers['x-amz-version-id'] = val
             elif _key == 'x-static-large-object':
                 # for delete slo
                 self.is_slo = config_true_value(val)
