@@ -25,7 +25,7 @@ from swift3.utils import LOGGER, camel_to_snake, utf8encode, utf8decode
 XMLNS_S3 = 'http://s3.amazonaws.com/doc/2006-03-01/'
 XMLNS_XSI = 'http://www.w3.org/2001/XMLSchema-instance'
 URLENCODE_BLACKLIST = ['LastModified', 'ID', 'DisplayName', 'Initiated',
-                       'ContinuationToken', 'NextContinuationToken']
+                       'ContinuationToken', 'NextContinuationToken', 'ETag']
 
 
 class XMLSyntaxError(S3Exception):
