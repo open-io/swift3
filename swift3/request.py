@@ -956,8 +956,19 @@ class Request(swob.Request):
             else:
                 account = self.account
 
+        drop_metadata = False
+        if ('HTTP_X_AMZ_METADATA_DIRECTIVE' in env or
+                'HTTP_X_AMZ_COPY_SOURCE' in env):
+            drop_metadata = \
+                env.get('HTTP_X_AMZ_METADATA_DIRECTIVE', 'COPY') == 'COPY'
+            env['HTTP_X_FRESH_METADATA'] = str(not drop_metadata)
+            env.pop('HTTP_X_AMZ_METADATA_DIRECTIVE', None)
+
         for key in self.environ:
             if key.startswith('HTTP_X_AMZ_META_'):
+                if drop_metadata:
+                    del env[key]
+                    continue
                 if not(set(env[key]).issubset(string.printable)):
                     env[key] = Header(env[key], 'UTF-8').encode()
                     if env[key].startswith('=?utf-8?q?'):
