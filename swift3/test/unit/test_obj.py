@@ -516,7 +516,7 @@ class TestSwift3Obj(Swift3TestCase):
         # Check that swift3 converts a Content-MD5 header into an etag.
         self.assertEqual(headers['etag'], etag)
 
-    def test_object_PUT_headers(self):
+    def test_object_PUT_headers_replace(self):
         content_md5 = self.etag.decode('hex').encode('base64').strip()
 
         self.swift.register('HEAD', '/v1/AUTH_test/some/source',
@@ -532,6 +532,7 @@ class TestSwift3Obj(Swift3TestCase):
                      'X-Amz-Meta-Unreadable-Suffix': 'h\x04',
                      'X-Amz-Meta-Lots-Of-Unprintable': 5 * '\x04',
                      'X-Amz-Copy-Source': '/some/source',
+                     'X-Amz-Metadata-Directive': 'REPLACE',
                      'Content-MD5': content_md5,
                      'Date': self.get_date_header()})
         req.date = datetime.now()
@@ -555,6 +556,53 @@ class TestSwift3Obj(Swift3TestCase):
                          '=?UTF-8?B?BAQEBAQ=?=')
         self.assertEqual(headers['X-Copy-From'], '/some/source')
         self.assertEqual(headers['Content-Length'], '0')
+
+    def _test_object_PUT_headers_copy(self, with_directive=False):
+        content_md5 = self.etag.decode('hex').encode('base64').strip()
+        req_headers = {'Authorization': 'AWS test:tester:hmac',
+                       'X-Amz-Storage-Class': 'STANDARD',
+                       'X-Amz-Meta-Something': 'oh hai',
+                       'X-Amz-Meta-Unreadable-Prefix': '\x04w',
+                       'X-Amz-Meta-Unreadable-Suffix': 'h\x04',
+                       'X-Amz-Meta-Lots-Of-Unprintable': 5 * '\x04',
+                       'X-Amz-Copy-Source': '/some/source',
+                       'Content-MD5': content_md5,
+                       'Date': self.get_date_header()}
+
+        if with_directive:
+            req_headers['X-Amz-Metadata-Directive'] = 'COPY'
+
+        self.swift.register('HEAD', '/v1/AUTH_test/some/source',
+                            swob.HTTPOk, {'last-modified': self.last_modified},
+                            None)
+        req = Request.blank(
+            '/bucket/object',
+            environ={'REQUEST_METHOD': 'PUT'}, headers=req_headers)
+        req.date = datetime.now()
+        req.content_type = 'text/plain'
+        status, headers, body = self.call_swift3(req)
+        # Check that swift3 does not return an etag header,
+        # specified copy source.
+        self.assertTrue(headers.get('etag') is None)
+        # Check that swift3 does not return custom metadata in response
+        self.assertTrue(headers.get('x-amz-meta-something') is None)
+
+        _, _, headers = self.swift.calls_with_headers[-1]
+        # Check that swift3 converts a Content-MD5 header into an etag.
+        self.assertEqual(headers['ETag'], self.etag)
+        # with default metadata-directive 'copy', metadata are ignored
+        self.assertNotIn('X-Object-Meta-Something', headers)
+        self.assertNotIn('X-Object-Meta-Unreadable-Prefix', headers)
+        self.assertNotIn('X-Object-Meta-Unreadable-Suffix', headers)
+        self.assertNotIn('X-Object-Meta-Lots-Of-Unprintable', headers)
+        self.assertEqual(headers['X-Copy-From'], '/some/source')
+        self.assertEqual(headers['Content-Length'], '0')
+
+    def test_object_PUT_headers_copy_explicit(self):
+        self._test_object_PUT_headers_copy(with_directive=True)
+
+    def test_object_PUT_headers_copy_implicit(self):
+        self._test_object_PUT_headers_copy(with_directive=False)
 
     def _test_object_PUT_copy(self, head_resp, put_header=None,
                               src_path='/some/source', timestamp=None):
