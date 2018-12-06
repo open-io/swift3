@@ -480,11 +480,13 @@ class ACL(object):
 
     @classmethod
     def from_headers(cls, headers, bucket_owner, object_owner=None,
-                     as_private=True):
+                     as_private=True, inherit_grants=None):
         """
         Convert HTTP headers to an ACL instance.
         """
         grants = []
+        if inherit_grants:
+            grants += inherit_grants
         try:
             for key, value in headers.items():
                 if key.lower().startswith('x-amz-grant-'):

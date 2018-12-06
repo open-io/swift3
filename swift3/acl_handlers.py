@@ -20,6 +20,7 @@ from swift3.response import MissingSecurityHeader, \
     MalformedACLError, UnexpectedContent
 from swift3.etree import fromstring, XMLSyntaxError, DocumentInvalid
 from swift3.utils import LOGGER, MULTIUPLOAD_SUFFIX, sysmeta_header
+from swift3.cfg import CONF
 
 
 """
@@ -218,9 +219,13 @@ class ObjectAclHandler(BaseAclHandler):
 
     def PUT(self, app):
         b_resp = self._handle_acl(app, 'HEAD', obj='')
+        inherits = None
+        if CONF.s3_acl and CONF.s3_acl_inherit:
+            inherits = b_resp.bucket_acl.grants
         req_acl = ACL.from_headers(self.req.headers,
                                    b_resp.bucket_acl.owner,
-                                   Owner(self.user_id, self.user_id))
+                                   Owner(self.user_id, self.user_id),
+                                   inherit_grants=inherits)
         self.req.object_acl = req_acl
 
 

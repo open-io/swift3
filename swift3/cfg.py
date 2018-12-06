@@ -62,6 +62,7 @@ CONF = Config({
     'max_parts_listing': 1000,
     'max_multi_delete_objects': 1000,
     's3_acl': False,
+    's3_acl_inherit': False,
     'storage_domain': '',
     'auth_pipeline_check': True,
     'max_upload_part_num': 1000,
