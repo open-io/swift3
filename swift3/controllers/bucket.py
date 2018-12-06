@@ -148,7 +148,7 @@ class BucketController(Controller):
                 for o in versioned_objects:
                     # The name looks like this:
                     #  '%03x%s/%s' % (len(name), name, version)
-                    o['name'], o['version_id'] = o['name'][3:].split('/', 1)
+                    o['name'], o['version_id'] = o['name'][3:].rsplit('/', 1)
                 objects.extend(versioned_objects)
             except NoSuchBucket:
                 # the bucket may not be versioned
