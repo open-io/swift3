@@ -71,7 +71,7 @@ class BucketController(Controller):
                 for seg in segments:
                     try:
                         req.get_response(self.app, 'DELETE', container,
-                                         seg['name'])
+                                         seg['name'].encode('utf-8'))
                     except NoSuchKey:
                         pass
                     except InternalError:
