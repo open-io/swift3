@@ -598,7 +598,7 @@ class UploadController(Controller):
         container = req.container_name + MULTIUPLOAD_SUFFIX
         resp = req.get_response(self.app, 'GET', container, '', query=query)
         objinfo = json.loads(resp.body)
-        objtable = dict((o['name'],
+        objtable = dict((o['name'].encode('utf-8'),
                          {'path': '/'.join(['', container, o['name']]),
                           'etag': o['hash'],
                           'size_bytes': o['bytes']}) for o in objinfo)
@@ -631,7 +631,6 @@ class UploadController(Controller):
                 if info is None or info['etag'] != etag:
                     raise InvalidPart(upload_id=upload_id,
                                       part_number=part_number)
-
                 info['size_bytes'] = int(info['size_bytes'])
                 manifest.append(info)
         except (XMLSyntaxError, DocumentInvalid):
