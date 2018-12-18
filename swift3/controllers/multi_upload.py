@@ -222,6 +222,10 @@ class PartController(Controller):
 
         # Redirect the request on the part
         _, req.container_name, req.object_name = part['path'].split('/', 2)
+        # XXX enforce container_name and object_name to be <str>
+        # or it will rise issues in swift3/requests when merging both
+        req.container_name = req.container_name.encode('utf-8')
+        req.object_name = req.object_name.encode('utf8')
         resp = req.get_response(self.app)
 
         # Get the content-type and etag of the object, not the part
