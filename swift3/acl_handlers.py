@@ -246,7 +246,7 @@ class S3AclHandler(BaseAclHandler):
             for g in req_acl.grants:
                 LOGGER.debug('Grant %s %s permission on the object /%s/%s' %
                              (g.grantee, g.permission, self.req.container_name,
-                              self.req.object_name))
+                              self.req.object_name.decode('utf-8')))
             self.req.object_acl = req_acl
         else:
             self._handle_acl(app, self.method)
