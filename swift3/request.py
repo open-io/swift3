@@ -54,7 +54,7 @@ from swift3.response import AccessDenied, InvalidArgument, InvalidDigest, \
     BadRequest
 from swift3.exception import NotS3Request
 from swift3.utils import utf8encode, LOGGER, check_path_header, S3Timestamp, \
-    mktime, MULTIUPLOAD_SUFFIX
+    mktime, MULTIUPLOAD_SUFFIX, versioned_object_name, VERSIONING_SUFFIX
 from swift3.cfg import CONF
 from swift3.subresource import decode_acl, encode_acl
 from swift3.utils import sysmeta_header, validate_bucket_name
@@ -1245,6 +1245,19 @@ class Request(swob.Request):
         return self._get_response(app, method, container, obj,
                                   headers, body, query)
 
+    def get_versioned_response(self, app, method=None, container=None,
+                               obj=None, headers=None, body=None, query=None):
+        """
+        Same as get_response(), but take the optional 'versionId'
+        from self.params into account.
+        """
+        if 'versionId' in self.params:
+            container = (container or self.container_name) + VERSIONING_SUFFIX
+            obj = versioned_object_name(obj or self.object_name,
+                                        self.params['versionId'])
+        return self.get_response(app, method, container, obj,
+                                 headers, body, query)
+
     def get_validated_param(self, param, default, limit=MAX_32BIT_INT):
         value = default
         if param in self.params:
@@ -1311,7 +1324,7 @@ class Request(swob.Request):
             return None
         query = {'multipart-manifest': 'delete'}
         try:
-            resp = self.get_response(app, 'HEAD')
+            resp = self.get_versioned_response(app, 'HEAD')
         except NoSuchKey:
             return None
         return query if resp.is_slo else None

@@ -200,7 +200,13 @@ class ObjectController(Controller):
             if req.params.get('versionId'):
                 resp = self._delete_version(req, query)
             else:
-                resp = req.get_response(self.app, query=query)
+                ctinfo = req.get_container_info(self.app)
+                if ctinfo.get('sysmeta', {}).get('versions-mode') == 'history':
+                    # If the object is a manifest, and versioning is enabled,
+                    # we must not delete the parts!
+                    resp = req.get_response(self.app)
+                else:
+                    resp = req.get_response(self.app, query=query)
 
             if query and resp.status_int == HTTP_OK:
                 for chunk in resp.app_iter:
