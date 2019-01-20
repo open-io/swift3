@@ -197,8 +197,11 @@ class S3Token(object):
         resp.body = error_msg
         return resp
 
-    def _json_request(self, creds_json):
-        headers = {'Content-Type': 'application/json'}
+    def _json_request(self, creds_json, tx_id):
+        headers = {
+            'Content-Type': 'application/json',
+            'X-Trans-Id': tx_id
+        }
         for attempt in range(self._max_attempts):
             try:
                 response = self.session.post(
@@ -306,7 +309,8 @@ class S3Token(object):
         #              pass it through to swiftauth in this case.
         try:
             # NB: requests.Response, not swob.Response
-            resp = self._json_request(creds_json)
+            tx_id = environ.get('swift.trans_id', 'UNKNOWN')
+            resp = self._json_request(creds_json, tx_id)
         except HTTPException as e_resp:
             if self._delay_auth_decision:
                 msg = 'Received error, deferring rejection based on error: %s'
