@@ -244,6 +244,8 @@ class S3AclHandler(BaseAclHandler):
                               self.req.xml(ACL.max_xml_length),
                               b_resp.bucket_acl.owner,
                               o_resp.object_acl.owner)
+            # Remove Content-Type to avoid updating it
+            self.req.environ.pop('CONTENT_TYPE', '')
 
             # Don't change the owner of the resource by PUT acl request.
             o_resp.object_acl.check_owner(req_acl.owner.id)
