@@ -21,6 +21,7 @@ import re
 import six
 import string
 from urllib import quote, unquote
+from six.moves.urllib.parse import parse_qsl
 
 from swift.common.utils import split_path
 from swift.common import swob
@@ -773,6 +774,19 @@ class Request(swob.Request):
 
         return swob.HeaderEnvironProxy(env)
 
+    def _split_path_query(self, src_path, minsegs=1, maxsegs=None,
+                          rest_with_last=False):
+        """
+        Split path, and extract a query string from the last part.
+        """
+        split = split_path(src_path, minsegs, maxsegs, rest_with_last)
+        if rest_with_last and '?' in split[-1]:
+            last, query = split[-1].rsplit('?', 1)
+            query = dict(parse_qsl(query, True))
+            return split[:-1] + [last, query]
+        else:
+            return split + [None]
+
     def check_copy_source(self, app):
         """
         check_copy_source checks the copy source existence and if copying an
@@ -786,12 +800,14 @@ class Request(swob.Request):
         src_path = unquote(self.headers['X-Amz-Copy-Source'])
         src_path = src_path if src_path.startswith('/') else \
             ('/' + src_path)
-        src_bucket, src_obj = split_path(src_path, 0, 2, True)
+        src_bucket, src_obj, query = self._split_path_query(
+            src_path, 0, 2, True)
         headers = swob.HeaderKeyDict()
         headers.update(self._copy_source_headers())
 
-        src_resp = self.get_response(app, 'HEAD', src_bucket, src_obj,
-                                     headers=headers)
+        src_resp = self.get_versioned_response(app, 'HEAD', src_bucket,
+                                               src_obj,
+                                               headers=headers, query=query)
         if src_resp.status_int == 304:  # pylint: disable-msg=E1101
             raise PreconditionFailed()
 
@@ -979,7 +995,20 @@ class Request(swob.Request):
                 del env[key]
 
         if 'HTTP_X_AMZ_COPY_SOURCE' in env:
-            env['HTTP_X_COPY_FROM'] = env['HTTP_X_AMZ_COPY_SOURCE']
+            raw_copy_source = env['HTTP_X_AMZ_COPY_SOURCE']
+            if not raw_copy_source.startswith('/'):
+                raw_copy_source = '/' + raw_copy_source
+            # Check for a query string with versionId
+            if '?' in raw_copy_source:
+                src_ct, src_obj, src_qs = self._split_path_query(
+                    raw_copy_source, 2, 2, True)
+                if src_qs and 'versionId' in src_qs:
+                    version_id = src_qs['versionId']
+                    src_ct = src_ct + VERSIONING_SUFFIX
+                    src_obj = versioned_object_name(src_obj, version_id)
+                env['HTTP_X_COPY_FROM'] = '%s/%s' % (src_ct, src_obj)
+            else:
+                env['HTTP_X_COPY_FROM'] = raw_copy_source
             del env['HTTP_X_AMZ_COPY_SOURCE']
             env['CONTENT_LENGTH'] = '0'
             # Mitigate a bug where overwriting a SLO did not remove parts.
@@ -1251,10 +1280,15 @@ class Request(swob.Request):
         Same as get_response(), but take the optional 'versionId'
         from self.params into account.
         """
-        if 'versionId' in self.params:
+        if query and 'versionId' in query:
+            version_id = query['versionId']
+        elif 'versionId' in self.params:
+            version_id = self.params['versionId']
+        else:
+            version_id = None
+        if version_id:
             container = (container or self.container_name) + VERSIONING_SUFFIX
-            obj = versioned_object_name(obj or self.object_name,
-                                        self.params['versionId'])
+            obj = versioned_object_name(obj or self.object_name, version_id)
         return self.get_response(app, method, container, obj,
                                  headers, body, query)
 
