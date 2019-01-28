@@ -150,6 +150,9 @@ def generate_s3acl_environ(account, swift, owner):
     # for object
     swift.register('HEAD', '/v1/AUTH_test/bucket/object', swob.HTTPOk,
                    object_headers, None)
+    # called when changing ACLs
+    swift.register('POST', '/v1/AUTH_test/bucket/object', swob.HTTPAccepted,
+                   {}, None)
 
 
 class TestSwift3S3Acl(Swift3TestCase):
