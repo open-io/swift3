@@ -647,6 +647,26 @@ class TestSwift3Object(Swift3FunctionalTestCase):
         # no next section
         self.assertFalse(mfile.next())  # sanity
 
+    def test_get_object_invalid_range(self):
+        """Test that an invalid range header is ignored."""
+        obj = 'object'
+        content = 'abcdefghij'
+        headers = {'x-amz-meta-test': 'swift'}
+        self.conn.make_request(
+            'PUT', self.bucket, obj, headers=headers, body=content)
+
+        # The range should have an equal sign instead of the semicolon.
+        headers = {'Range': 'bytes:1-5'}
+        status, headers, body = \
+            self.conn.make_request('GET', self.bucket, obj, headers=headers)
+        self.assertEqual(status, 200)
+        self.assertCommonResponseHeaders(headers)
+        self.assertTrue('content-length' in headers)
+        self.assertEqual(headers['content-length'], str(len(content)))
+        self.assertTrue('x-amz-meta-test' in headers)
+        self.assertEqual('swift', headers['x-amz-meta-test'])
+        self.assertEqual(body, content)
+
     def test_get_object_if_modified_since(self):
         obj = 'object'
         self.conn.make_request('PUT', self.bucket, obj)

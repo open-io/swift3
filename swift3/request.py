@@ -437,6 +437,7 @@ class Request(swob.Request):
             }
         else:
             self.string_to_sign = None
+        self._cleanup_invalid_range_format()
         self.token = None
         self.account = None
         self.user_id = None
@@ -511,6 +512,14 @@ class Request(swob.Request):
                 'Signature' not in self.params and
                 'Expires' not in self.params and
                 'X-Amz-Credential' not in self.params)
+
+    def _cleanup_invalid_range_format(self):
+        range_ = self.headers.get('Range', None)
+        if range_ is not None:
+            try:
+                swob.Range(range_)
+            except ValueError:
+                del self.headers['Range']
 
     def _parse_host(self):
         storage_domain = CONF.storage_domain

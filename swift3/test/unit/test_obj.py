@@ -332,6 +332,18 @@ class TestSwift3Obj(Swift3TestCase):
         self.assertTrue(headers['content-range'].startswith('bytes 0-3'))
 
     @s3acl
+    def test_object_GET_invalid_Range(self):
+        req = Request.blank('/bucket/object',
+                            environ={'REQUEST_METHOD': 'GET'},
+                            headers={'Authorization': 'AWS test:tester:hmac',
+                                     'Range': 'bytes:0-3',
+                                     'Date': self.get_date_header()})
+        status, headers, body = self.call_swift3(req)
+        self.assertEqual(status.split()[0], '200')
+
+        self.assertTrue('content-range' not in headers)
+
+    @s3acl
     def test_object_GET_Range_error(self):
         code = self._test_method_error('GET', '/bucket/object',
                                        swob.HTTPRequestedRangeNotSatisfiable)
