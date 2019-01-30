@@ -221,10 +221,10 @@ class BucketController(Controller):
             if is_truncated:
                 if 'name' in objects[-1]:
                     SubElement(elem, 'NextContinuationToken').text = \
-                        b64encode(objects[-1]['name'])
+                        b64encode(objects[-1]['name'].encode('utf8'))
                 if 'subdir' in objects[-1]:
                     SubElement(elem, 'NextContinuationToken').text = \
-                        b64encode(objects[-1]['subdir'])
+                        b64encode(objects[-1]['subdir'].encode('utf8'))
             if 'continuation-token' in req.params:
                 SubElement(elem, 'ContinuationToken').text = \
                     req.params['continuation-token']
@@ -254,13 +254,15 @@ class BucketController(Controller):
                         contents = SubElement(elem, 'DeleteMarker')
                     else:
                         contents = SubElement(elem, 'Version')
-                    SubElement(contents, 'Key').text = o['name']
+                    SubElement(contents, 'Key').text = \
+                        o['name'].encode('utf-8')
                     SubElement(contents, 'VersionId').text = version_id
                     SubElement(contents, 'IsLatest').text = str(
                         'version_id' not in o).lower()
                 else:
                     contents = SubElement(elem, 'Contents')
-                    SubElement(contents, 'Key').text = o['name']
+                    SubElement(contents, 'Key').text = \
+                        o['name'].encode('utf-8')
                 SubElement(contents, 'LastModified').text = \
                     o['last_modified'][:-3] + 'Z'
                 if 's3_etag' in o.get('content_type', ''):
@@ -278,7 +280,8 @@ class BucketController(Controller):
         for o in objects:
             if 'subdir' in o:
                 common_prefixes = SubElement(elem, 'CommonPrefixes')
-                SubElement(common_prefixes, 'Prefix').text = o['subdir']
+                SubElement(common_prefixes, 'Prefix').text = \
+                    o['subdir'].encode('utf-8')
 
         body = tostring(elem, encoding_type=encoding_type)
 
