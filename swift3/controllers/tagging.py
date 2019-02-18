@@ -53,8 +53,8 @@ class TaggingController(Controller):
         """
         Handles GET Bucket tagging and GET Object tagging.
         """
-        resp = req._get_response(self.app, 'HEAD',
-                                 req.container_name, req.object_name)
+        resp = req._get_versioned_response(self.app, 'HEAD',
+                                           req.container_name, req.object_name)
         headers = dict()
         if req.is_object_request:
             body = resp.sysmeta_headers.get(OBJECT_TAGGING_HEADER)
@@ -93,8 +93,8 @@ class TaggingController(Controller):
             req.headers[OBJECT_TAGGING_HEADER] = body
         else:
             req.headers[BUCKET_TAGGING_HEADER] = body
-        resp = req._get_response(self.app, 'POST',
-                                 req.container_name, req.object_name)
+        resp = req._get_versioned_response(self.app, 'POST',
+                                           req.container_name, req.object_name)
         if resp.status_int == 202:
             headers = dict()
             if req.object_name:
@@ -114,8 +114,8 @@ class TaggingController(Controller):
             req.headers[OBJECT_TAGGING_HEADER] = ""
         else:
             req.headers[BUCKET_TAGGING_HEADER] = ""
-        resp = req._get_response(self.app, 'POST', req.container_name,
-                                 req.object_name)
+        resp = req._get_versioned_response(self.app, 'POST',
+                                           req.container_name, req.object_name)
         if resp.status_int == 202:
             headers = dict()
             if req.object_name:

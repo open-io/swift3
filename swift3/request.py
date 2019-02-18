@@ -1274,11 +1274,10 @@ class Request(swob.Request):
         return self._get_response(app, method, container, obj,
                                   headers, body, query)
 
-    def get_versioned_response(self, app, method=None, container=None,
-                               obj=None, headers=None, body=None, query=None):
+    def _build_version(self, container=None, obj=None, query=None):
         """
-        Same as get_response(), but take the optional 'versionId'
-        from self.params into account.
+        Get modified copies of container and object names by taking
+        the optional 'versionId' from query or self.params into account.
         """
         if query and 'versionId' in query:
             version_id = query['versionId']
@@ -1289,8 +1288,27 @@ class Request(swob.Request):
         if version_id:
             container = (container or self.container_name) + VERSIONING_SUFFIX
             obj = versioned_object_name(obj or self.object_name, version_id)
+        return container, obj
+
+    def get_versioned_response(self, app, method=None, container=None,
+                               obj=None, headers=None, body=None, query=None):
+        """
+        Same as get_response(), but take the optional 'versionId'
+        from self.params into account.
+        """
+        container, obj = self._build_version(container, obj, query)
         return self.get_response(app, method, container, obj,
                                  headers, body, query)
+
+    def _get_versioned_response(self, app, method=None, container=None,
+                                obj=None, headers=None, body=None, query=None):
+        """
+        Same as _get_reponse(), but take the optional 'versionId'
+        from self.params into account.
+        """
+        container, obj = self._build_version(container, obj, query)
+        return self._get_response(app, method, container, obj,
+                                  headers, body, query)
 
     def get_validated_param(self, param, default, limit=MAX_32BIT_INT):
         value = default
