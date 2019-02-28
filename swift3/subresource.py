@@ -442,7 +442,7 @@ class ACL(object):
         """
         Check that the user is an owner.
         """
-        if not CONF.s3_acl:
+        if not CONF.s3_acl or CONF.s3_acl_openbar:
             # Ignore Swift3 ACL.
             return
 
@@ -459,7 +459,7 @@ class ACL(object):
         """
         Check that the user has a permission.
         """
-        if not CONF.s3_acl:
+        if not CONF.s3_acl or CONF.s3_acl_openbar:
             # Ignore Swift3 ACL.
             return
 

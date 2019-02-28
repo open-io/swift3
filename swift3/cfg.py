@@ -53,6 +53,7 @@ class Config(dict):
         else:
             dict.__setitem__(self, key, value)
 
+
 # Global config dictionary.  The default values can be defined here.
 CONF = Config({
     'allow_no_owner': False,
@@ -63,6 +64,7 @@ CONF = Config({
     'max_multi_delete_objects': 1000,
     's3_acl': False,
     's3_acl_inherit': False,
+    's3_acl_openbar': False,
     'storage_domain': '',
     'auth_pipeline_check': True,
     'max_upload_part_num': 1000,

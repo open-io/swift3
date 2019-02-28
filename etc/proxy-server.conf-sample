@@ -75,9 +75,15 @@ use = egg:swift3#swift3
 # This stuff is still under development and it might cause something
 # you don't expect.
 # s3_acl = false
+#
 # If set to 'true', Swift3 will append Swift3 ACL from Bucket to Object ACL
 # when an object is stored. Requires s3_acl.
 # s3_acl_inherit = false
+#
+# If set to 'true', Swift3 won't check ACLs before executing any request.
+# DO NOT ENABLE THIS ON A PUBLIC-FACING GATEWAY. It is intended only
+# for administration purposes.
+# s3_acl_openbar = false
 
 #
 # Specify a host name of your Swift cluster.  This enables virtual-hosted style
