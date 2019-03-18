@@ -602,6 +602,10 @@ class UploadController(Controller):
         container = req.container_name + MULTIUPLOAD_SUFFIX
         resp = req.get_response(self.app, 'GET', container, '', query=query)
         objinfo = json.loads(resp.body)
+
+        # pylint: disable-msg=no-member
+        objinfo.sort(key=lambda o: int(o['name'].split('/')[-1]))
+
         objtable = dict((o['name'].encode('utf-8'),
                          {'path': '/'.join(['', container, o['name']]),
                           'etag': o['hash'],
