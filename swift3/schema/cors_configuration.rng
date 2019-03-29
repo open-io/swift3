@@ -5,10 +5,10 @@
     <element name="CORSConfiguration">
       <zeroOrMore>
         <element name="CORSRule">
-          <element name="AllowedOrigin">
-            <data type="string"/>
-          </element>
           <interleave>
+            <element name="AllowedOrigin">
+              <data type="string"/>
+            </element>
             <zeroOrMore>
               <element name="AllowedHeader">
                 <data type="string"/>
@@ -19,9 +19,11 @@
                 <data type="string"/>
               </element>
             </zeroOrMore>
-            <element name="MaxAgeSeconds">
-              <data type="integer"/>
-            </element>
+            <optional>
+              <element name="MaxAgeSeconds">
+                <data type="integer"/>
+              </element>
+            </optional>
             <zeroOrMore>
               <element name="ExposeHeader">
                 <data type="string"/>

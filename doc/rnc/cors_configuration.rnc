@@ -1,11 +1,10 @@
-include "common.rnc"
 start =
   element CORSConfiguration {
     element CORSRule {
       element AllowedOrigin { xsd:string } &
-      element AllowedHeader { xsd:string } &*
-      element AllowedMethod { xsd:string } &*
-      element MaxAgeSeconds { xsd:integer } &
-      element ExposeHeader { xsd:string } *
+      element AllowedHeader { xsd:string }* &
+      element AllowedMethod { xsd:string }* &
+      element MaxAgeSeconds { xsd:integer }? &
+      element ExposeHeader { xsd:string }*
     }*
   }
