@@ -285,7 +285,15 @@ class BucketController(Controller):
 
         body = tostring(elem, encoding_type=encoding_type)
 
-        return HTTPOk(body=body, content_type='application/xml')
+        resp = HTTPOk(body=body, content_type='application/xml')
+
+        origin = req.headers.get('Origin')
+        if origin:
+            rule = get_cors(self.app, req, "GET", origin)
+            if rule:
+                cors_fill_headers(req, resp, rule)
+
+        return resp
 
     @public
     def PUT(self, req):
