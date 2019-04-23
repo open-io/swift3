@@ -1,6 +1,8 @@
 sudo: required
 dist: trusty
 language: python
+python:
+  - "2.7"
 addons:
   apt:
     sources:
@@ -23,7 +25,7 @@ env:
 
 install:
   - env
-  - virtualenv $HOME/venv
+  - virtualenv -p $(which python) $HOME/venv
   - source $HOME/venv/bin/activate
   - pip install --upgrade pip setuptools virtualenv tox
   - cd ..
