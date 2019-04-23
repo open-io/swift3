@@ -88,7 +88,13 @@ def cors_fill_headers(req, resp, rule):
         if len(vals):
             resp.headers[hdr] = ', '.join(vals)
 
-    set_header_if_item('Access-Control-Allow-Origin', 'AllowedOrigin')
+    # use from request as rule may contains wildcard
+    # NOTE: if * AND request is anonymous, we can reply '*'
+    # https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#Access-Control-Allow-Origin
+    if req._is_anonymous and rule.find('AllowedOrigin').text == '*':
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+    else:
+        resp.headers['Access-Control-Allow-Origin'] = req.headers.get('Origin')
     set_header_if_item('Access-Control-Max-Age', 'MaxAgeSeconds')
     set_header_if_items('Access-Control-Allow-Methods', 'AllowedMethod')
     set_header_if_items('Access-Control-Expose-Headers', 'ExposeHeader')
