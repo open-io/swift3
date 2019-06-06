@@ -146,9 +146,11 @@ class BucketController(Controller):
                 resp = req.get_response(self.app, query=query)
                 versioned_objects = json.loads(resp.body)
                 for o in versioned_objects:
-                    # The name looks like this:
-                    #  '%03x%s/%s' % (len(name), name, version)
-                    o['name'], o['version_id'] = o['name'][3:].rsplit('/', 1)
+                    if 'name' in o:
+                        # The name looks like this:
+                        #  '%03x%s/%s' % (len(name), name, version)
+                        o['name'], o['version_id'] = \
+                            o['name'][3:].rsplit('/', 1)
                 objects.extend(versioned_objects)
             except NoSuchBucket:
                 # the bucket may not be versioned
