@@ -217,10 +217,18 @@ class S3Token(object):
                 if attempt + 1 >= self._max_attempts:
                     raise self._deny_request('ServiceUnavailable')
                 self._logger.warning('retrying (%d/%d)',
-                                     attempt + 1, self._max_attempts)
+                                     attempt + 1, self._max_attempts - 1)
                 continue
             except requests.exceptions.RequestException as e:
-                self._logger.info('HTTP connection exception: %s', e)
+                self._logger.warning('HTTP connection exception: %s', e)
+                # Sometimes, we don't get httplib.BadStatusLine,
+                # but a RequestException with a nested ProtocolError
+                # with BadStatusLine as message.
+                if 'BadStatusLine' in str(e) and \
+                        attempt + 1 < self._max_attempts:
+                    self._logger.warning('retrying (%d/%d)',
+                                         attempt + 1, self._max_attempts - 1)
+                    continue
                 raise self._deny_request('InvalidURI')
 
             if response.status_code >= 500:
@@ -230,7 +238,7 @@ class S3Token(object):
                 if attempt + 1 >= self._max_attempts:
                     raise self._deny_request('ServiceUnavailable')
                 self._logger.warning('retrying (%d/%d)',
-                                     attempt + 1, self._max_attempts)
+                                     attempt + 1, self._max_attempts - 1)
                 continue
             elif response.status_code < 200 or response.status_code >= 300:
                 self._logger.debug('Keystone reply error: status=%s reason=%s',
