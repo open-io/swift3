@@ -646,6 +646,11 @@ class TestSwift3Bucket(Swift3TestCase):
         self.assertEqual(code, 'AccessDenied')
         code = self._test_method_error('PUT', '/bucket', swob.HTTPAccepted)
         self.assertEqual(code, 'BucketAlreadyExists')
+        if self.swift3.bucket_db:
+            self.swift3.bucket_db.reserve('bucket', 'AUTH_test')
+            code = self._test_method_error('PUT', '/bucket', swob.HTTPAccepted)
+            self.assertEqual(code, 'BucketAlreadyOwnedByYou')
+            self.swift3.bucket_db.release('bucket')
         code = self._test_method_error('PUT', '/bucket', swob.HTTPServerError)
         self.assertEqual(code, 'InternalError')
         code = self._test_method_error(

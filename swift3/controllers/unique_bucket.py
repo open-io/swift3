@@ -1,4 +1,4 @@
-# Copyright (c) 2018 OpenIO SAS.
+# Copyright (c) 2018-2019 OpenIO SAS.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,8 @@
 
 from swift.common.utils import public
 from swift3.controllers import BucketController
-from swift3.response import BucketAlreadyExists, NoSuchBucket
+from swift3.response import BucketAlreadyExists, BucketAlreadyOwnedByYou, \
+    NoSuchBucket
 
 
 class UniqueBucketController(BucketController):
@@ -31,8 +32,10 @@ class UniqueBucketController(BucketController):
         # We are about to create a container, reserve its name.
         can_create = req.bucket_db.reserve(req.container_name, req.account)
         if not can_create:
+            ct_owner = req.bucket_db.get_owner(req.container_name)
+            if ct_owner == req.account:
+                raise BucketAlreadyOwnedByYou(req.container_name)
             raise BucketAlreadyExists(req.container_name)
-
         try:
             resp = super(UniqueBucketController, self).PUT(req)
         except Exception:
