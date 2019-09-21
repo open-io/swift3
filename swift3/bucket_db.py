@@ -112,6 +112,12 @@ class RedisBucketDb(object):
                                                       port=self._redis_port)
         return self._conn
 
+    @property
+    def conn_slave(self):
+        if self._sentinel:
+            return self._sentinel.slave_for(self._master_name)
+        return self.conn
+
     def _key(self, bucket):
         return self._prefix + bucket
 
@@ -121,7 +127,7 @@ class RedisBucketDb(object):
 
         :returns: the name of the account owning the bucket or None
         """
-        owner = self.conn.get(self._key(bucket))
+        owner = self.conn_slave.get(self._key(bucket))
         return owner
 
     def set_owner(self, bucket, owner):
