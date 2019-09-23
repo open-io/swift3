@@ -17,6 +17,98 @@ import time
 import importlib
 from swift.common.utils import config_true_value
 
+try:
+    from oio.common.redis_conn import RedisConnection
+except ImportError:
+    # TODO(adu): Delete when it will no longer be used
+    class RedisConnection(object):
+
+        # Imported from redis-py, for compatibility with pre 2.10.6 versions.
+        URL_QUERY_ARGUMENT_PARSERS = {
+            'socket_timeout': float,
+            'socket_connect_timeout': float,
+            'socket_keepalive': config_true_value,
+            'retry_on_timeout': config_true_value,
+            'max_connections': int,
+            'health_check_interval': int,
+        }
+
+        def __init__(self, host=None, sentinel_hosts=None,
+                     sentinel_name=None, **kwargs):
+            self.__redis_mod = importlib.import_module('redis')
+            self.__redis_sentinel_mod = importlib.import_module(
+                'redis.sentinel')
+
+            self._conn = None
+            self._host = None
+            self._port = None
+            self._sentinel = None
+            self._sentinel_hosts = None
+            self._sentinel_name = None
+            self._conn_kwargs = self._filter_conn_kwargs(kwargs)
+
+            if host:
+                self._host, self._port = host.rsplit(':', 1)
+                self._port = int(self._port)
+                return
+
+            if not sentinel_name:
+                raise ValueError("missing parameter 'sentinel_name'")
+
+            if isinstance(sentinel_hosts, basestring):
+                sentinel_hosts = sentinel_hosts.split(',')
+            self._sentinel_hosts = [(h, int(p)) for h, p, in (hp.rsplit(':', 1)
+                                    for hp in sentinel_hosts)]
+            self._sentinel_name = sentinel_name
+            self._sentinel_conn_kwargs = self._filter_sentinel_conn_kwargs(
+                kwargs)
+            self._sentinel = self.__redis_sentinel_mod.Sentinel(
+                self._sentinel_hosts,
+                sentinel_kwargs=self._sentinel_conn_kwargs,
+                **self._conn_kwargs)
+
+        def _filter_conn_kwargs(self, conn_kwargs):
+            """
+            Keep only keyword arguments known by Redis classes, cast them to
+            the appropriate type.
+            """
+            if conn_kwargs is None:
+                return None
+            if hasattr(self.__redis_mod.connection,
+                       'URL_QUERY_ARGUMENT_PARSERS'):
+                parsers = \
+                    self.__redis_mod.connection.URL_QUERY_ARGUMENT_PARSERS
+            else:
+                parsers = self.URL_QUERY_ARGUMENT_PARSERS
+            return {k: parsers[k](v)
+                    for k, v in conn_kwargs.items()
+                    if k in parsers}
+
+        def _filter_sentinel_conn_kwargs(self, sentinel_conn_kwargs):
+            if sentinel_conn_kwargs is None:
+                return None
+            return self._filter_conn_kwargs(
+                {k[9:]: v for k, v in sentinel_conn_kwargs.items()
+                 if k.startswith('sentinel_')})
+
+        @property
+        def conn(self):
+            """Retrieve Redis connection (normal or sentinel)"""
+            if self._sentinel:
+                return self._sentinel.master_for(self._sentinel_name)
+            if not self._conn:
+                self._conn = self.__redis_mod.StrictRedis(
+                    host=self._host, port=self._port,
+                    **self._conn_kwargs)
+            return self._conn
+
+        @property
+        def conn_slave(self):
+            """Retrieve Redis connection (normal or sentinel)"""
+            if self._sentinel:
+                return self._sentinel.slave_for(self._sentinel_name)
+            return self.conn
+
 
 class DummyBucketDb(object):
     """
@@ -71,52 +163,18 @@ class DummyBucketDb(object):
         self._bucket_db.pop(bucket, None)
 
 
-class RedisBucketDb(object):
+class RedisBucketDb(RedisConnection):
     """
     Keep a list of buckets with their associated account.
     Dummy in-memory implementation.
     """
 
-    def __init__(self, host="127.0.0.1:6379",
-                 sentinel_hosts=None, master_name=None,
+    def __init__(self, host=None, sentinel_hosts=None, sentinel_name=None,
                  prefix="s3bucket:", **kwargs):
-        self.__redis_mod = importlib.import_module('redis')
-        self.__redis_sentinel_mod = importlib.import_module('redis.sentinel')
-
-        self._redis_host, self._redis_port = host.rsplit(':', 1)
-        self._redis_port = int(self._redis_port)
+        super(RedisBucketDb, self).__init__(
+            host=host, sentinel_hosts=sentinel_hosts,
+            sentinel_name=sentinel_name, **kwargs)
         self._prefix = prefix
-
-        if isinstance(sentinel_hosts, basestring):
-            self._sentinel_hosts = [(h, int(p)) for h, p, in (hp.split(':', 2)
-                                    for hp in sentinel_hosts.split(','))]
-        else:
-            self._sentinel_hosts = sentinel_hosts
-        if self._sentinel_hosts and not master_name:
-            raise ValueError("missing parameter 'master_name'")
-        self._master_name = master_name
-
-        self._conn = None
-        self._sentinel = None
-
-        if self._sentinel_hosts:
-            self._sentinel = self.__redis_sentinel_mod.Sentinel(
-                self._sentinel_hosts)
-
-    @property
-    def conn(self):
-        if self._sentinel:
-            return self._sentinel.master_for(self._master_name)
-        if not self._conn:
-            self._conn = self.__redis_mod.StrictRedis(host=self._redis_host,
-                                                      port=self._redis_port)
-        return self._conn
-
-    @property
-    def conn_slave(self):
-        if self._sentinel:
-            return self._sentinel.slave_for(self._master_name)
-        return self.conn
 
     def _key(self, bucket):
         return self._prefix + bucket
@@ -175,6 +233,9 @@ def get_bucket_db(conf):
                  if k.startswith('bucket_db_')}
     if config_true_value(db_kwargs.get('enabled', 'false')):
         if 'host' in db_kwargs or 'sentinel_hosts' in db_kwargs:
+            if db_kwargs.get('sentinel_name') is None:
+                # TODO(adu): Delete when it will no longer be used
+                db_kwargs['sentinel_name'] = db_kwargs.pop('master_name', None)
             return RedisBucketDb(**db_kwargs)
         else:
             return DummyBucketDb(**db_kwargs)
