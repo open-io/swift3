@@ -55,7 +55,8 @@ class ServiceController(Controller):
                 creation_date = '2009-02-03T16:45:09.000Z'
             if CONF.s3_acl and CONF.check_bucket_owner:
                 try:
-                    c_resp = req.get_response(self.app, 'HEAD', c['name'])
+                    cname = c['name'].encode('utf-8')
+                    c_resp = req.get_response(self.app, 'HEAD', cname)
                     if 'X-Timestamp' in c_resp.sw_headers:
                         creation_date = S3Timestamp(
                             c_resp.sw_headers['X-Timestamp']).s3xmlformat

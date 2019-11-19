@@ -20,8 +20,7 @@ import hmac
 import re
 import six
 import string
-from urllib import quote, unquote
-from six.moves.urllib.parse import parse_qsl
+from six.moves.urllib.parse import parse_qsl, quote, unquote
 
 from swift.common.utils import split_path
 from swift.common import swob
@@ -612,7 +611,7 @@ class Request(swob.Request):
             return self._parse_header_authentication()
         # TODO(mb): check src against auth_prefix's tempauth
         elif self.bucket_db and CONF.allow_anymous_path_request and \
-                src and src != 'auth' and \
+                src and src not in ('auth', 'info') and \
                 (self._parse_host() or (src and not valid_api_version(src))):
             # Anonymous request, we will have to resolve account name
             # from bucket name.

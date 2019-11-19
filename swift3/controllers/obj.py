@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
-
 from swift.common.http import HTTP_OK, HTTP_PARTIAL_CONTENT, HTTP_NO_CONTENT
 from swift.common.middleware.versioned_writes import \
     DELETE_MARKER_CONTENT_TYPE
@@ -215,9 +213,8 @@ class ObjectController(Controller):
                 resp.body = ''
         except NoSuchKey:
             # expect to raise NoSuchBucket when the bucket doesn't exist
-            exc_type, exc_value, exc_traceback = sys.exc_info()
             req.get_container_info(self.app)
-            raise exc_type, exc_value, exc_traceback
+            raise
         return resp
 
     @public

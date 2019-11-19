@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
-
 from swift.common.utils import public
 
 from swift3.controllers.base import Controller, bucket_operation
@@ -78,9 +76,8 @@ class VersioningController(Controller):
         except (XMLSyntaxError, DocumentInvalid):
             raise MalformedXML()
         except Exception as e:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
             LOGGER.error(e)
-            raise exc_type, exc_value, exc_traceback
+            raise
 
         if status not in ['Enabled', 'Suspended']:
             raise MalformedXML()

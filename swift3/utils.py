@@ -19,8 +19,8 @@ import email.utils
 import re
 import socket
 import time
-from urllib import unquote
 import uuid
+from six.moves.urllib.parse import unquote
 
 from swift.common.utils import get_logger, parse_content_type
 

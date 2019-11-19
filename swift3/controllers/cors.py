@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import re
-import sys
 
 from swift.common.utils import public
 
@@ -176,9 +175,8 @@ class CorsController(Controller):
         except (XMLSyntaxError, DocumentInvalid):
             raise MalformedXML()
         except Exception as e:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
             LOGGER.error(e)
-            raise exc_type, exc_value, exc_traceback
+            raise
 
         # forbid wildcard for ExposeHeader
         check_cors_rule(data)

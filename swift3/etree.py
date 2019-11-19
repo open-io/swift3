@@ -14,10 +14,9 @@
 # limitations under the License.
 
 import lxml.etree
-from urllib import quote
 from copy import deepcopy
 from pkg_resources import resource_stream  # pylint: disable-msg=E0611
-import sys
+from six.moves.urllib.parse import quote
 
 from swift3.exception import S3Exception
 from swift3.utils import LOGGER, camel_to_snake, utf8encode, utf8decode
@@ -74,9 +73,8 @@ def fromstring(text, root_tag=None):
                 lxml.etree.RelaxNG(file=rng).assertValid(elem)
         except IOError as e:
             # Probably, the schema file doesn't exist.
-            exc_type, exc_value, exc_traceback = sys.exc_info()
             LOGGER.error(e)
-            raise exc_type, exc_value, exc_traceback
+            raise
         except lxml.etree.DocumentInvalid as e:
             LOGGER.debug(e)
             raise DocumentInvalid(e)

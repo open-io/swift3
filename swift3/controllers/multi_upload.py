@@ -44,7 +44,6 @@ upload information:
 
 import os
 import re
-import sys
 
 from hashlib import md5
 from binascii import unhexlify
@@ -571,7 +570,8 @@ class UploadController(Controller):
         objects = json.loads(resp.body)
         for o in objects:
             container = req.container_name + MULTIUPLOAD_SUFFIX
-            req.get_response(self.app, container=container, obj=o['name'])
+            obj = o['name'].encode('utf-8')
+            req.get_response(self.app, container=container, obj=obj)
 
         return HTTPNoContent()
 
@@ -649,9 +649,8 @@ class UploadController(Controller):
         except ErrorResponse:
             raise
         except Exception as e:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
             LOGGER.error(e)
-            raise exc_type, exc_value, exc_traceback
+            raise
 
         # Following swift commit 7f636a5, zero-byte segments aren't allowed,
         # even as the final segment
