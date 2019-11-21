@@ -60,7 +60,7 @@ from swift3.controllers.base import Controller, bucket_operation, \
 from swift3.response import InvalidArgument, ErrorResponse, MalformedXML, \
     InvalidPart, BucketAlreadyExists, EntityTooSmall, InvalidPartOrder, \
     InvalidRequest, HTTPOk, HTTPNoContent, NoSuchKey, NoSuchUpload, \
-    NoSuchBucket, InvalidRange
+    NoSuchBucket, InvalidRange, BadDigest
 from swift3.utils import LOGGER, unique_id, MULTIUPLOAD_SUFFIX, S3Timestamp, \
     extract_s3_etag
 from swift3.etree import Element, SubElement, fromstring, tostring, \
@@ -623,6 +623,15 @@ class UploadController(Controller):
             xml = req.xml(MAX_COMPLETE_UPLOAD_BODY_SIZE)
             if not xml:
                 raise InvalidRequest(msg='You must specify at least one part')
+            if 'content-md5' in req.headers:
+                # If an MD5 was provided, we need to verify it.
+                # Note that S3Request already took care of translating to ETag
+                if req.headers['etag'] != md5(xml).hexdigest():
+                    raise BadDigest(content_md5=req.headers['content-md5'])
+                # We're only interested in the body here, in the
+                # multipart-upload controller -- *don't* let it get
+                # plumbed down to the object-server
+                del req.headers['etag']
 
             complete_elem = fromstring(xml, 'CompleteMultipartUpload')
             for part_elem in complete_elem.iterchildren('Part'):
