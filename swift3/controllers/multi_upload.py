@@ -56,6 +56,7 @@ from six.moves.urllib.parse import urlparse  # pylint: disable=F0401
 
 from swift3.controllers.base import Controller, bucket_operation, \
     object_operation, check_container_existence
+from swift3.iam import check_iam_access
 from swift3.response import InvalidArgument, ErrorResponse, MalformedXML, \
     InvalidPart, BucketAlreadyExists, EntityTooSmall, InvalidPartOrder, \
     InvalidRequest, HTTPOk, HTTPNoContent, NoSuchKey, NoSuchUpload, \
@@ -117,6 +118,7 @@ class PartController(Controller):
     @public
     @object_operation
     @check_container_existence
+    @check_iam_access('s3:PutObject')
     def PUT(self, req):
         """
         Handles Upload Part and Upload Part Copy.
@@ -255,6 +257,7 @@ class UploadsController(Controller):
                       err_msg="Key is not expected for the GET method "
                               "?uploads subresource")
     @check_container_existence
+    @check_iam_access('s3:ListBucketMultipartUploads')
     def GET(self, req):
         """
         Handles List Multipart Uploads
@@ -406,6 +409,7 @@ class UploadsController(Controller):
     @public
     @object_operation
     @check_container_existence
+    @check_iam_access('s3:PutObject')
     def POST(self, req):
         """
         Handles Initiate Multipart Upload.
@@ -451,6 +455,7 @@ class UploadController(Controller):
     @public
     @object_operation
     @check_container_existence
+    @check_iam_access('s3:ListMultipartUploadParts')
     def GET(self, req):
         """
         Handles List Parts.
@@ -550,6 +555,7 @@ class UploadController(Controller):
     @public
     @object_operation
     @check_container_existence
+    @check_iam_access('s3:AbortMultipartUpload')
     def DELETE(self, req):
         """
         Handles Abort Multipart Upload.
@@ -589,6 +595,7 @@ class UploadController(Controller):
     @public
     @object_operation
     @check_container_existence
+    @check_iam_access('s3:PutObject')
     def POST(self, req):
         """
         Handles Complete Multipart Upload.

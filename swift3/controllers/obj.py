@@ -28,6 +28,8 @@ from swift3.response import S3NotImplemented, InvalidRange, NoSuchKey, \
     InvalidArgument, CORSForbidden, HTTPOk, CORSInvalidAccessControlRequest, \
     CORSOriginMissing
 
+from swift3.iam import check_iam_access
+
 
 class ObjectController(Controller):
     """
@@ -112,6 +114,7 @@ class ObjectController(Controller):
         return resp
 
     @public
+    @check_iam_access("s3:GetObject")
     def HEAD(self, req):
         """
         Handle HEAD Object request
@@ -126,6 +129,7 @@ class ObjectController(Controller):
         return resp
 
     @public
+    @check_iam_access("s3:GetObject")
     def GET(self, req):
         """
         Handle GET Object request
@@ -133,7 +137,9 @@ class ObjectController(Controller):
         log_s3api_command(req, 'get-object')
         return self.GETorHEAD(req)
 
+    # IAM-FIXME add test on source for Copy Object
     @public
+    @check_iam_access("s3:PutObject")
     def PUT(self, req):
         """
         Handle PUT Object and PUT Object (Copy) request
@@ -191,7 +197,9 @@ class ObjectController(Controller):
 
         return resp
 
+    # IAM-FIXME: add special case for versioning
     @public
+    @check_iam_access("s3:DeleteObject")
     def DELETE(self, req):
         """
         Handle DELETE Object request

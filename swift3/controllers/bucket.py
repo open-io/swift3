@@ -25,6 +25,7 @@ from swift3.controllers.cors import get_cors, cors_fill_headers, \
     CORS_ALLOWED_HTTP_METHOD
 from swift3.etree import Element, SubElement, tostring, fromstring, \
     XMLSyntaxError, DocumentInvalid
+from swift3.iam import check_iam_access
 from swift3.response import HTTPOk, S3NotImplemented, InvalidArgument, \
     MalformedXML, InvalidLocationConstraint, NoSuchBucket, \
     BucketNotEmpty, InternalError, ServiceUnavailable, NoSuchKey, \
@@ -86,6 +87,7 @@ class BucketController(Controller):
             raise ServiceUnavailable()
 
     @public
+    @check_iam_access("s3:ListBucket")
     def HEAD(self, req):
         """
         Handle HEAD Bucket (Get Metadata) request
@@ -97,6 +99,7 @@ class BucketController(Controller):
         return HTTPOk(headers=resp.headers)
 
     @public
+    @check_iam_access("s3:ListBucket")
     def GET(self, req):
         """
         Handle GET Bucket (List Objects) request
@@ -309,6 +312,7 @@ class BucketController(Controller):
         return resp
 
     @public
+    @check_iam_access("s3:CreateBucket")
     def PUT(self, req):
         """
         Handle PUT Bucket request
@@ -338,6 +342,7 @@ class BucketController(Controller):
         return resp
 
     @public
+    @check_iam_access("s3:DeleteBucket")
     def DELETE(self, req):
         """
         Handle DELETE Bucket request

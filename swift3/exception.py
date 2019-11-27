@@ -32,3 +32,7 @@ class ACLError(S3Exception):
 
 class InvalidSubresource(S3Exception):
     pass
+
+
+class IAMException(S3Exception):
+    pass
