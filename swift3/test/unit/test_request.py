@@ -754,5 +754,42 @@ class TestRequest(Swift3TestCase):
         self.assertTrue(sigv2_req.check_signature(
             'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'))
 
+    def test_request_absolute_uri(self):
+        environ = {
+            'HTTP_HOST': 'test.com',
+            'REQUEST_METHOD': 'GET'}
+        headers = {'Authorization': 'AWS test:tester:hmac',
+                   'X-Amz-Date': self.get_date_header()}
+        req = Request.blank('/', environ=environ, headers=headers)
+
+        req.environ['PATH_INFO'] = 'http://test.com/mybucket/myobject'
+        s3_req = S3_Request(req.environ)
+        self.assertEqual('mybucket', s3_req.container_name)
+        self.assertEqual('myobject', s3_req.object_name)
+
+        req.environ['PATH_INFO'] = 'http://test.com/mybucket/mydir/myobject'
+        s3_req = S3_Request(req.environ)
+        self.assertEqual('mybucket', s3_req.container_name)
+        self.assertEqual('mydir/myobject', s3_req.object_name)
+
+        # Virtual hosted-style
+        environ = {
+            'HTTP_HOST': 'mybucket.s3.test.com',
+            'REQUEST_METHOD': 'GET'}
+        req = Request.blank('/', environ=environ, headers=headers)
+
+        with patch('swift3.cfg.CONF.storage_domain', 's3.test.com'):
+            req.environ['PATH_INFO'] = 'http://mybucket.s3.test.com/myobject'
+            s3_req = S3_Request(req.environ)
+            self.assertEqual('mybucket', s3_req.container_name)
+            self.assertEqual('myobject', s3_req.object_name)
+
+            req.environ['PATH_INFO'] = \
+                'http://mybucket.s3.test.com/mydir/myobject'
+            s3_req = S3_Request(req.environ)
+            self.assertEqual('mybucket', s3_req.container_name)
+            self.assertEqual('mydir/myobject', s3_req.object_name)
+
+
 if __name__ == '__main__':
     unittest.main()

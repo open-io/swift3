@@ -20,7 +20,7 @@ import hmac
 import re
 import six
 import string
-from six.moves.urllib.parse import parse_qsl, quote, unquote
+from six.moves.urllib.parse import parse_qsl, quote, unquote, urlparse
 
 from swift.common.utils import split_path
 from swift.common import swob
@@ -420,6 +420,15 @@ class Request(swob.Request):
     def __init__(self, env, app=None, slo_enabled=True):
         # NOTE: app is not used by this class, need for compatibility of S3acl
         swob.Request.__init__(self, env)
+
+        # Allow to accept HTTP requests with an absoluteURI
+        path_info = self.environ.get('PATH_INFO')
+        if path_info:
+            self.environ['PATH_INFO'] = urlparse(path_info).path
+        raw_path_info = self.environ.get('RAW_PATH_INFO')
+        if raw_path_info:
+            self.environ['RAW_PATH_INFO'] = urlparse(raw_path_info).path
+
         self._timestamp = None
         self.access_key, self.signature = self._parse_auth_info()
         self.bucket_in_host = self._parse_host()
