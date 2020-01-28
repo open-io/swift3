@@ -28,6 +28,36 @@ class TestSwift3Iam(TestCase):
         self.assertRaises(IAMException,
                           IamRulesMatcher({}), rsc, "s3:GetObject")
 
+    def test_action_wildcard(self):
+        rules = json.loads("""{
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": [
+                        "s3:Get*",
+                        "s3:List*"
+                    ],
+                    "Resource": ["*"],
+                    "Sid": "ReadOnly"
+                }
+            ],
+            "Version": "2012-10-17"
+        }
+        """)
+        check = IamRulesMatcher(rules)
+        bucket_res = IamResource("customer")
+        object_res = IamResource("customer/somefile")
+        self.assertEqual((EXPLICIT_ALLOW, 'ReadOnly'),
+                         check(object_res, "s3:GetObject"))
+        self.assertEqual((EXPLICIT_ALLOW, 'ReadOnly'),
+                         check(bucket_res, "s3:GetBucketLocation"))
+        self.assertEqual((EXPLICIT_ALLOW, 'ReadOnly'),
+                         check(bucket_res, "s3:ListBucket"))
+        self.assertEqual((None, None),
+                         check(bucket_res, "s3:CreateBucket"))
+        self.assertEqual((None, None),
+                         check(object_res, "s3:PutObject"))
+
     def test_explicit_allow(self):
         rules = json.loads("""{
             "Statement": [

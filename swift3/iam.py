@@ -49,6 +49,7 @@ SUPPORTED_ACTIONS = {
     "s3:CreateBucket": RT_BUCKET,
     "s3:DeleteBucket": RT_BUCKET,
     "s3:DeleteObject": RT_OBJECT,
+    "s3:GetBucketLocation": RT_BUCKET,
     "s3:ListBucket": RT_BUCKET,
     "s3:ListMultipartUploadParts": RT_OBJECT,
     "s3:ListBucketMultipartUploads": RT_BUCKET,
@@ -143,8 +144,16 @@ class IamRulesMatcher(object):
                 continue
 
             # Check Action
-            if (ACTION_WILDCARD not in statement['Action'] and
-                    action not in statement['Action']):
+            for rule_action in statement['Action']:
+                if rule_action == action:
+                    # Found an exact match
+                    break
+                elif rule_action.endswith('*'):
+                    action_prefix = rule_action[:-1]
+                    if action.startswith(action_prefix):
+                        # Found a wildcard match
+                        break
+            else:
                 self.logger.info('Skipping %s, action %s is not in the list',
                                  sid, action)
                 continue
