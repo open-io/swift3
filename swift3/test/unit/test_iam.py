@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest import TestCase
 import json
+from unittest import TestCase
+from mock import MagicMock
 
 from swift3.iam import IamResource, IamRulesMatcher, \
     EXPLICIT_DENY, EXPLICIT_ALLOW
@@ -150,3 +151,82 @@ class TestSwift3Iam(TestCase):
         check = IamRulesMatcher(rules)
         self.assertEqual((EXPLICIT_ALLOW, 'AllowWildcard-3'),
                          check(rsc, "s3:GetObject"))
+
+    def test_statement_condition_stringequals(self):
+        rules = json.loads("""{
+            "Statement": [
+                {
+                    "Sid": "AllowRootAndHomeListingOfCompanyBucket",
+                    "Action": ["s3:ListBucket"],
+                    "Effect": "Allow",
+                    "Resource": ["arn:aws:s3:::my-company"],
+                    "Condition": {
+                        "StringEquals": {
+                            "s3:prefix": ["", "home/", "home/David"],
+                            "s3:delimiter": ["/"]
+                        }
+                    }
+                }
+            ],
+            "Version": "2012-10-17"
+        }
+        """)
+        check = IamRulesMatcher(rules)
+        bucket_res = IamResource("my-company")
+        self.assertEqual((None, None),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={})))
+        self.assertEqual((None, None),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={'prefix': ''})))
+        self.assertEqual((None, None),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={'prefix': 'home/Michael',
+                                                 'delimiter': '/'})))
+        self.assertEqual((None, None),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={'prefix': 'home/David',
+                                                 'delimiter': ':'})))
+        self.assertEqual(('ALLOW', 'AllowRootAndHomeListingOfCompanyBucket'),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={'prefix': 'home/David',
+                                                 'delimiter': '/'})))
+
+    def test_statement_condition_stringlike(self):
+        rules = json.loads("""{
+            "Statement": [
+                {
+                    "Sid": "AllowListingOfUserFolder",
+                    "Action": ["s3:ListBucket"],
+                    "Effect": "Allow",
+                    "Resource": ["arn:aws:s3:::my-company"],
+                    "Condition": {
+                        "StringLike": {"s3:prefix": ["home/David/*"]}
+                    }
+                }
+            ],
+            "Version": "2012-10-17"
+        }
+        """)
+        check = IamRulesMatcher(rules)
+        bucket_res = IamResource("my-company")
+        self.assertEqual((None, None),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={})))
+        self.assertEqual((None, None),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={'prefix': ''})))
+        self.assertEqual((None, None),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={'prefix': 'home/Michael/'})))
+        self.assertEqual((None, None),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={'prefix': 'home/David',
+                                                 'delimiter': ':'})))
+        self.assertEqual(('ALLOW', 'AllowListingOfUserFolder'),
+                         check(bucket_res, "s3:ListBucket",
+                               MagicMock(params={'prefix': 'home/David/'})))
+        self.assertEqual(
+            ('ALLOW', 'AllowListingOfUserFolder'),
+            check(bucket_res, "s3:ListBucket",
+                  MagicMock(params={'prefix': 'home/David/foo/'})))

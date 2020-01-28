@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from fnmatch import fnmatch
 from functools import wraps
 
 from swift.common.utils import get_logger
@@ -25,9 +26,9 @@ from swift3.utils import LOGGER
 ARN_S3_PREFIX = "arn:aws:s3:::"
 
 # Match every bucket or object
-ARN_WILDCARD_EVERYTHING = "arn:aws:s3:::*"
+ARN_WILDCARD_EVERYTHING = ARN_S3_PREFIX + "*"
 # Match every object (but not buckets)
-ARN_WILDCARD_OBJECTS = "arn:aws:s3:::*/*"
+ARN_WILDCARD_OBJECTS = ARN_S3_PREFIX + "*/*"
 
 ACTION_WILDCARD = "s3:*"
 EXPLICIT_ALLOW = "ALLOW"
@@ -86,6 +87,66 @@ class IamResource(object):
         return RT_BUCKET if self.is_bucket() else RT_OBJECT
 
 
+def string_equals(actual, expected):
+    """
+    Check if `actual` is equal to one of the strings in the `expected` list.
+
+    :type expected: list
+    :type actual: str
+    :rtype: bool
+    :returns: True if actual is in the list of expected strings
+    """
+    return actual in expected
+
+
+def string_like(actual, expected):
+    """
+    Try to match `actual` to one of the patterns in `expected`.
+
+    :returns: True if `actual` matches one of the patterns in `expected`
+    """
+    if actual is None:
+        return False
+    for pattern in expected:
+        if fnmatch(actual, pattern):
+            return True
+    return False
+
+
+# See iam-ug.pdf document, page 569.
+IamConditionOp = {
+    "StringEquals": string_equals,
+    "StringNotEquals": lambda a, e: not string_equals(a, e),
+    "StringLike": string_like,
+    "StringNotLike": lambda a, e: not string_like(a, e),
+    # TODO(IAM): implement the following functions
+    # "IpAddress": None,
+    # "NotIpAddress": None,
+    # "StringEqualsIgnoreCase": None,
+    # "StringNotEqualsIgnoreCase": None,
+}
+
+
+# See iam-ug.pdf document, page 629.
+IamConditionKey = {
+    "s3:delimiter": lambda req: req.params.get('delimiter'),
+    "s3:max-keys": lambda req: req.params.get('max-keys'),
+    "s3:prefix": lambda req: req.params.get('prefix'),
+    # TODO(IAM): implement the following keys
+    # "aws:CurrentTime": None,
+    # "aws:EpochTime": None,
+    # "aws:SourceIp": None,
+    # "aws:UserAgent": None,
+    # "aws:userid": None,
+    # "s3:VersionId": None,
+    # "s3:x-amz-acl": None,
+    # "s3:x-amz-copy-source": None,
+    # "s3:x-amz-metadata-directive": None,
+}
+
+
+# TODO(IAM): merge this class into StaticIamMiddleware
+# so we can make subrequests.
 class IamRulesMatcher(object):
     """
     Matches an action and a resource against a set of IAM rules.
@@ -97,7 +158,7 @@ class IamRulesMatcher(object):
         self._rules = rules
         self.logger = logger or LOGGER
 
-    def __call__(self, resource, action):
+    def __call__(self, resource, action, req=None):
         """
         Match the specified action and resource against the set of IAM rules.
 
@@ -105,6 +166,7 @@ class IamRulesMatcher(object):
         :type action: `str`
         :param resource: the resource to match.
         :type resource: `Resource`
+        :param req: the S3 request object
         """
         if action not in SUPPORTED_ACTIONS:
             raise IAMException("Unsupported action: %s" % action)
@@ -116,17 +178,72 @@ class IamRulesMatcher(object):
 
         # Start by matching explicit denies, because they take precedence
         # over explicit allows.
-        matched, rule_name = self.match_explicit_deny(action, resource)
+        matched, rule_name = self.match_explicit_deny(action, resource, req)
         if matched:
             return EXPLICIT_DENY, rule_name
         # Then match explicit allows.
-        matched, rule_name = self.match_explicit_allow(action, resource)
+        matched, rule_name = self.match_explicit_allow(action, resource, req)
         if matched:
             return EXPLICIT_ALLOW, rule_name
         # Nothing matched, the request will be denied :(
         return None, None
 
-    def do_explicit_check(self, effect, action, req_res):
+    def resolve_cond_key(self, key, req):
+        """
+        Load the condition value from the request or environment.
+        See iam-ug.pdf document, page 1401.
+        """
+        return IamConditionKey[key](req)
+
+    def check_condition(self, statement, req):
+        """
+        Check the conditions from the statement are satisfied.
+
+        To be consistent with the "default deny" rule, for unverifiable
+        conditions, deny the request.
+
+        :param statement: the statement dict using the condition
+        :param req: the current request
+        """
+        cond = statement.get('Condition', {})
+        effect = statement['Effect']
+        for opname, operands in cond.items():
+            if opname not in IamConditionOp:
+                if effect == RE_ALLOW:
+                    self.logger.info(
+                        "IAM: condition operator %s not implemented. Since "
+                        "it is used in an 'allow' statement, consider the "
+                        "condition is not satisfied.", opname)
+                    return False
+                else:
+                    self.logger.info(
+                        "IAM: condition operator %s not implemented. Since "
+                        "it is used in a 'deny' statement, consider the "
+                        "condition is satisfied.", opname)
+                    continue
+            operator = IamConditionOp[opname]
+            for cond_key, values in operands.items():
+                if cond_key not in IamConditionKey:
+                    if effect == RE_ALLOW:
+                        self.logger.info(
+                            "IAM: condition %s not implemented. Since it is "
+                            "in an 'allow' statement, consider it is not "
+                            "satisfied.", cond_key)
+                        return False
+                    else:
+                        self.logger.info(
+                            "IAM: condition %s not implemented. Since it is "
+                            "in a 'deny' statement, consider it is satisfied.",
+                            cond_key)
+                        continue
+                cond_val = self.resolve_cond_key(cond_key, req)
+                if not operator(cond_val, values):
+                    # One of the conditions is not satisfied
+                    return False
+        # All conditions are satisfied
+        return True
+
+    def do_explicit_check(self, effect, action, req_res, req):
         """
         Lookup for an explicit deny or an explicit allow in the set of rules.
 
@@ -162,12 +279,14 @@ class IamRulesMatcher(object):
                 rule_res = IamResource(resource_str)
 
                 # check WildCard before everything else
-                if rule_res.arn == ARN_WILDCARD_EVERYTHING:
+                if (rule_res.arn == ARN_WILDCARD_EVERYTHING and
+                        self.check_condition(statement, req)):
                     self.logger.info('%s: matches everything', sid)
                     return True, sid
 
                 if (req_res.type == RT_OBJECT and
-                        rule_res.arn == ARN_WILDCARD_OBJECTS):
+                        rule_res.arn == ARN_WILDCARD_OBJECTS and
+                        self.check_condition(statement, req)):
                     self.logger.info('%s: matches every object', sid)
                     return True, sid
 
@@ -176,23 +295,25 @@ class IamRulesMatcher(object):
                                      sid)
                     continue
 
-                if rule_res.arn == req_res.arn:
+                if (rule_res.arn == req_res.arn and
+                        self.check_condition(statement, req)):
                     self.logger.info('%s: found exact match', sid)
                     return True, sid
                 if rule_res.arn.endswith('*'):
                     root_path = rule_res.arn[:-1]
-                    if req_res.arn.startswith(root_path):
+                    if (req_res.arn.startswith(root_path) and
+                            self.check_condition(statement, req)):
                         self.logger.info('%s: found object match (wildcard)',
                                          sid)
                         return True, sid
         self.logger.info('No %s match found', effect)
         return False, None
 
-    def match_explicit_deny(self, action, resource):
-        return self.do_explicit_check(RE_DENY, action, resource)
+    def match_explicit_deny(self, action, resource, req):
+        return self.do_explicit_check(RE_DENY, action, resource, req)
 
-    def match_explicit_allow(self, action, resource):
-        return self.do_explicit_check(RE_ALLOW, action, resource)
+    def match_explicit_allow(self, action, resource, req):
+        return self.do_explicit_check(RE_ALLOW, action, resource, req)
 
 
 def check_iam_access(action):
@@ -228,7 +349,7 @@ def check_iam_access(action):
             else:
                 rsc = None
 
-            effect, _sid = matcher(rsc, action)
+            effect, _sid = matcher(rsc, action, req)
             # TODO(IAM): log sid, the ID of the rule statement which matched
             if effect != EXPLICIT_ALLOW:
                 raise AccessDenied()
