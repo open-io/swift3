@@ -231,3 +231,30 @@ cache = swift.cache
 # See swift manual for more details.
 use = egg:swift#keystoneauth
 operator_roles = admin, swiftoperator
+
+# Note: put iam before swift3 in the pipeline.
+# If you don't put it in the pipeline, it will be disabled.
+[filter:iam]
+use = egg:swift3#iam
+
+# Load IAM user policies from a JSON file.
+# The file must contain a JSON object, with one IAM policy document per
+# user ID. Example for tempauth user "admin" from account "admin":
+#
+# {
+#   "admin:admin": {
+#     "Statement": [
+#       {
+#         "Sid": "FullAccess",
+#         "Action": [
+#           "s3:*"
+#         ],
+#         "Effect": "Allow",
+#         "Resource": [
+#           "*"
+#         ]
+#       }
+#     ]
+#   }
+# }
+connection = file:///etc/swift/iam_rules.json

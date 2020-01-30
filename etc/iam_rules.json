@@ -1,21 +1,22 @@
 {
-    "demo:admin": {
+    "demo:demo": {
         "Statement": [
             {
+                "Sid": "FullAccess",
                 "Action": [
                     "s3:*"
                 ],
                 "Effect": "Allow",
                 "Resource": [
                     "*"
-                ],
-                "Sid": "FullAccess"
+                ]
             }
         ]
     },
     "demo:user1": {
         "Statement": [
             {
+                "Sid": "User1BucketAllObjects",
                 "Action": [
                     "s3:ListBucket",
                     "s3:GetObject",
@@ -26,10 +27,10 @@
                 "Resource": [
                     "arn:aws:s3:::user1bucket",
                     "arn:aws:s3:::user1bucket/*"
-                ],
-                "Sid": "User1BucketAllObjects"
+                ]
             },
             {
+                "Sid": "SharedBucketUser1Objects",
                 "Action": [
                     "s3:GetObject",
                     "s3:PutObject",
@@ -38,10 +39,10 @@
                 "Effect": "Allow",
                 "Resource": [
                     "arn:aws:s3:::sharedbucket/user1_*"
-                ],
-                "Sid": "SharedBucketUser1Objects"
+                ]
             },
             {
+                "Sid": "SharedBucketAllObjects",
                 "Action": [
                     "s3:GetObject",
                     "s3:ListBucket"
@@ -50,8 +51,81 @@
                 "Resource": [
                     "arn:aws:s3:::sharedbucket",
                     "arn:aws:s3:::sharedbucket/*"
+                ]
+            },
+            {
+                "Sid": "NavToUserFolder",
+                "Action": ["s3:ListBucket"],
+                "Effect": "Allow",
+                "Resource": ["arn:aws:s3:::companybucket"],
+                "Condition": {"StringEquals":{"s3:prefix":["", "home/", "home/user1/"]}}
+            },
+            {
+                "Sid": "UserFolder",
+                "Action": ["s3:ListBucket"],
+                "Effect": "Allow",
+                "Resource": ["arn:aws:s3:::companybucket"],
+                "Condition": {"StringLike":{"s3:prefix":["home/user1/*"]}}
+            },
+            {
+                "Sid": "UserFolderObjects",
+                "Action": ["s3:*"],
+                "Effect": "Allow",
+                "Resource": ["arn:aws:s3:::companybucket/home/user1/*"]
+            }
+        ]
+    },
+    "demo:user2": {
+        "Statement": [
+            {
+                "Sid": "NavToUserFolder",
+                "Action": ["s3:ListBucket"],
+                "Effect": "Allow",
+                "Resource": ["arn:aws:s3:::companybucket"],
+                "Condition": {"StringEquals":{"s3:prefix":["", "home/", "home/user2/"]}}
+            },
+            {
+                "Sid": "UserFolder",
+                "Action": ["s3:ListBucket"],
+                "Effect": "Allow",
+                "Resource": ["arn:aws:s3:::companybucket"],
+                "Condition": {"StringLike":{"s3:prefix":["home/user2/*"]}}
+            },
+            {
+                "Sid": "UserFolderObjects",
+                "Action": ["s3:*"],
+                "Effect": "Allow",
+                "Resource": ["arn:aws:s3:::companybucket/home/user2/*"]
+            }
+        ]
+    },
+    "account2:admin": {
+        "Statement": [
+            {
+                "Sid": "FullAccess",
+                "Action": [
+                    "s3:*"
                 ],
-                "Sid": "SharedBucketAllObjects"
+                "Effect": "Allow",
+                "Resource": [
+                    "*"
+                ]
+            }
+        ]
+    },
+    "account2:user1": {
+        "Statement": [
+            {
+                "Sid": "SharedBucketAllObjects",
+                "Action": [
+                    "s3:GetObject",
+                    "s3:ListBucket"
+                ],
+                "Effect": "Allow",
+                "Resource": [
+                    "arn:aws:s3:::sharedbucket",
+                    "arn:aws:s3:::sharedbucket/*"
+                ]
             }
         ]
     }

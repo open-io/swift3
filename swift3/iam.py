@@ -146,7 +146,7 @@ IamConditionKey = {
 
 
 # TODO(IAM): merge this class into StaticIamMiddleware
-# so we can make subrequests.
+# so we can make subrequests to load resource-based policies.
 class IamRulesMatcher(object):
     """
     Matches an action and a resource against a set of IAM rules.
@@ -359,6 +359,8 @@ def check_iam_access(action):
     return real_check_iam_access
 
 
+# TODO(IAM): create a base class with rules_callback() and
+# an abstract load_rules_for_req_user() method.
 class StaticIamMiddleware(object):
     """
     Middleware loading IAM rules from a file.
@@ -371,24 +373,38 @@ class StaticIamMiddleware(object):
     def __init__(self, app, conf):
         self.app = app
         self.logger = get_logger(conf)
-        self.rules_file = conf.get('rules_file')
-        if not self.rules_file:
-            self.logger.info('No IAM rules files')
+        self.connection = conf.get('connection')
+        if not self.connection:
+            self.logger.info('No IAM rules file')
             self.rules = dict()
         else:
             import json
-            self.logger.info('Loading IAM rules from %s',
-                             self.rules_file)
-            with open(self.rules_file, 'r') as rules_fd:
+            from urlparse import urlparse
+            parsed = urlparse(self.connection)
+            if parsed.scheme and parsed.scheme != 'file':
+                raise ValueError("IAM: 'connection' must point to a JSON file")
+            self.logger.info('Loading IAM rules from %s', parsed.path)
+            with open(parsed.path, 'r') as rules_fd:
                 self.rules = json.load(rules_fd)
 
-    def rules_callback(self, s3req):
+    def load_rules_for_req_user(self, s3req):
+        """
+        Load rules for the authenticated user who did the request:
+        - from its own user policy,
+        - from its optional group policy,
+        - from its role policy.
+
+        Subclasses can overload this method.
+        """
         rules = self.rules.get(s3req.user_id)
+        return rules
+
+    def rules_callback(self, s3req):
+        rules = self.load_rules_for_req_user(s3req)
         if rules:
             self.logger.debug("Loading IAM rules for account=%s user_id=%s",
                               s3req.account, s3req.user_id)
-            # TODO(IAM): save IamRulesMatcher instances in a cache
-            # or build them all in __init__.
+            # TODO(IAM): save IamRulesMatcher instances in a short-term cache.
             matcher = IamRulesMatcher(rules, logger=self.logger)
             return matcher
         else:
