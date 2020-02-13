@@ -142,6 +142,8 @@ IamConditionKey = {
     # "s3:x-amz-acl": None,
     # "s3:x-amz-copy-source": None,
     # "s3:x-amz-metadata-directive": None,
+    # referer (bucket policy)
+    # custom header with specific value
 }
 
 
@@ -359,33 +361,21 @@ def check_iam_access(action):
     return real_check_iam_access
 
 
-# TODO(IAM): create a base class with rules_callback() and
-# an abstract load_rules_for_req_user() method.
-class StaticIamMiddleware(object):
+class IamMiddleware(object):
     """
-    Middleware loading IAM rules from a file.
+    Base class for IAM implementations.
 
-    This middleware must be placed before swift3 in the pipeline.
-    The file must contain a JSON object, with one IAM policy document
-    per user ID.
+    Subclasses must implement load_rules_for_req_user.
     """
 
     def __init__(self, app, conf):
         self.app = app
         self.logger = get_logger(conf)
         self.connection = conf.get('connection')
-        if not self.connection:
-            self.logger.info('No IAM rules file')
-            self.rules = dict()
-        else:
-            import json
-            from urlparse import urlparse
-            parsed = urlparse(self.connection)
-            if parsed.scheme and parsed.scheme != 'file':
-                raise ValueError("IAM: 'connection' must point to a JSON file")
-            self.logger.info('Loading IAM rules from %s', parsed.path)
-            with open(parsed.path, 'r') as rules_fd:
-                self.rules = json.load(rules_fd)
+
+    def __call__(self, env, start_response):
+        env[IAM_RULES_CALLBACK] = self.rules_callback
+        return self.app(env, start_response)
 
     def load_rules_for_req_user(self, s3req):
         """
@@ -394,10 +384,13 @@ class StaticIamMiddleware(object):
         - from its optional group policy,
         - from its role policy.
 
-        Subclasses can overload this method.
+        Subclasses must implement this method.
+
+        :rtype: dict
+        :returns: a dictionary with at least a 'Statement' key, containing
+            a list of IAM statements.
         """
-        rules = self.rules.get(s3req.user_id)
-        return rules
+        raise NotImplementedError
 
     def rules_callback(self, s3req):
         rules = self.load_rules_for_req_user(s3req)
@@ -412,9 +405,34 @@ class StaticIamMiddleware(object):
                               s3req.account, s3req.user_id)
             return None
 
-    def __call__(self, env, start_response):
-        env[IAM_RULES_CALLBACK] = self.rules_callback
-        return self.app(env, start_response)
+
+class StaticIamMiddleware(IamMiddleware):
+    """
+    Middleware loading IAM rules from a file.
+
+    This middleware must be placed before swift3 in the pipeline.
+    The file must contain a JSON object, with one IAM policy document
+    per user ID.
+    """
+
+    def __init__(self, app, conf):
+        super(StaticIamMiddleware, self).__init__(app, conf)
+        if not self.connection:
+            self.logger.info('No IAM rules file')
+            self.rules = dict()
+        else:
+            import json
+            from urlparse import urlparse
+            parsed = urlparse(self.connection)
+            if parsed.scheme and parsed.scheme != 'file':
+                raise ValueError("IAM: 'connection' must point to a JSON file")
+            self.logger.info('Loading IAM rules from %s', parsed.path)
+            with open(parsed.path, 'r') as rules_fd:
+                self.rules = json.load(rules_fd)
+
+    def load_rules_for_req_user(self, s3req):
+        rules = self.rules.get(s3req.user_id)
+        return rules
 
 
 def filter_factory(global_conf, **local_config):
