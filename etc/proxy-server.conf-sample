@@ -258,3 +258,8 @@ use = egg:swift3#iam
 #   }
 # }
 connection = file:///etc/swift/iam_rules.json
+
+# Keep this number of rules in cache
+cache_size = 1000
+# Keep rules in cache for this long (seconds)
+cache_ttl = 30

@@ -16,7 +16,7 @@
 from fnmatch import fnmatch
 from functools import wraps
 
-from swift.common.utils import get_logger
+from swift.common.utils import config_auto_int_value, get_logger, LRUCache
 
 from swift3.exception import IAMException
 from swift3.response import AccessDenied
@@ -365,19 +365,25 @@ class IamMiddleware(object):
     """
     Base class for IAM implementations.
 
-    Subclasses must implement load_rules_for_req_user.
+    Subclasses must implement load_rules_for_user.
     """
 
     def __init__(self, app, conf):
         self.app = app
         self.logger = get_logger(conf)
         self.connection = conf.get('connection')
+        maxsize = config_auto_int_value(conf.get('cache_size'), 1000)
+        maxtime = config_auto_int_value(conf.get('cache_ttl'), 30)
+        self._load_rules_matcher = LRUCache(maxsize=maxsize, maxtime=maxtime)(
+            self._build_rules_matcher)
 
     def __call__(self, env, start_response):
+        # Put the rules callback in the request environment so middlewares
+        # further in the pipeline can call it when needed.
         env[IAM_RULES_CALLBACK] = self.rules_callback
         return self.app(env, start_response)
 
-    def load_rules_for_req_user(self, s3req):
+    def load_rules_for_user(self, account, user_id):
         """
         Load rules for the authenticated user who did the request:
         - from its own user policy,
@@ -392,18 +398,25 @@ class IamMiddleware(object):
         """
         raise NotImplementedError
 
-    def rules_callback(self, s3req):
-        rules = self.load_rules_for_req_user(s3req)
+    def _build_rules_matcher(self, account, user_id):
+        """
+        Load IAM rules for the specified user, then build an IamRulesMatcher
+        instance.
+        """
+        rules = self.load_rules_for_user(account, user_id)
         if rules:
             self.logger.debug("Loading IAM rules for account=%s user_id=%s",
-                              s3req.account, s3req.user_id)
-            # TODO(IAM): save IamRulesMatcher instances in a short-term cache.
+                              account, user_id)
             matcher = IamRulesMatcher(rules, logger=self.logger)
             return matcher
         else:
             self.logger.debug("No IAM rule for account=%s user_id=%s",
-                              s3req.account, s3req.user_id)
+                              account, user_id)
             return None
+
+    def rules_callback(self, s3req):
+        matcher = self._load_rules_matcher(s3req.account, s3req.user_id)
+        return matcher
 
 
 class StaticIamMiddleware(IamMiddleware):
@@ -430,8 +443,8 @@ class StaticIamMiddleware(IamMiddleware):
             with open(parsed.path, 'r') as rules_fd:
                 self.rules = json.load(rules_fd)
 
-    def load_rules_for_req_user(self, s3req):
-        rules = self.rules.get(s3req.user_id)
+    def load_rules_for_user(self, account, user_id):
+        rules = self.rules.get(user_id)
         return rules
 
 
