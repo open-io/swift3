@@ -173,6 +173,10 @@ class Swift3Middleware(object):
                            'to support multi-part upload, please add it '
                            'in pipeline')
 
+        # Check IAM middleware position: when enabled, must be before swift3
+        if 'iam' in pipeline:
+            check_filter_order(pipeline, ['iam', 'swift3'])
+
         if not conf.auth_pipeline_check:
             LOGGER.debug('Skip pipeline auth check.')
             return
