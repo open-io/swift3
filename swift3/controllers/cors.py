@@ -44,9 +44,8 @@ def match(pattern, value):
 
 
 def get_cors(app, req, method, origin):
-    resp = req._get_response(app, 'HEAD',
-                             req.container_name, "")
-    body = resp.sysmeta_headers.get(BUCKET_CORS_HEADER)
+    sysmeta = req.get_container_info(app).get('sysmeta', {})
+    body = sysmeta.get('swift3-cors')
     if not body:
         return None
     data = fromstring(body, "CorsConfiguration")
@@ -141,13 +140,19 @@ class CorsController(Controller):
     """
 
     @staticmethod
-    def convert(req, resp, code, response):
-        if resp.status_int == code:
+    def convert_response(req, resp, success_code, response_class):
+        """
+        Convert a successful response into another one with a different code.
+
+        This is required because the S3 protocol does not expect the same
+        response codes as the ones returned by the swift backend.
+        """
+        if resp.status_int == success_code:
             headers = dict()
             if req.object_name:
                 headers['x-amz-version-id'] = \
                     resp.sw_headers[VERSION_ID_HEADER]
-            return response(headers=headers)
+            return response_class(headers=headers)
         return resp
 
     @public
@@ -157,9 +162,8 @@ class CorsController(Controller):
         Handles GET Bucket CORS.
         """
         log_s3api_command(req, 'get-bucket-cors')
-        resp = req._get_response(self.app, 'HEAD',
-                                 req.container_name, None)
-        body = resp.sysmeta_headers.get(BUCKET_CORS_HEADER)
+        sysmeta = req.get_container_info(self.app).get('sysmeta', {})
+        body = sysmeta.get('swift3-cors')
         if not body:
             raise NoSuchCORSConfiguration
         return HTTPOk(body=body, content_type='application/xml')
@@ -168,7 +172,7 @@ class CorsController(Controller):
     @bucket_operation
     def PUT(self, req):  # pylint: disable=invalid-name
         """
-        Handles PUT Bucket CORs.
+        Handles PUT Bucket CORS.
         """
         log_s3api_command(req, 'put-bucket-cors')
         xml = req.xml(MAX_CORS_BODY_SIZE)
@@ -176,8 +180,8 @@ class CorsController(Controller):
             data = fromstring(xml, "CorsConfiguration")
         except (XMLSyntaxError, DocumentInvalid):
             raise MalformedXML()
-        except Exception as e:
-            LOGGER.error(e)
+        except Exception as exc:
+            LOGGER.error(exc)
             raise
 
         # forbid wildcard for ExposeHeader
@@ -186,16 +190,16 @@ class CorsController(Controller):
         req.headers[BUCKET_CORS_HEADER] = xml
         resp = req._get_response(self.app, 'POST',
                                  req.container_name, None)
-        return self.convert(req, resp, 204, HTTPOk)
+        return self.convert_response(req, resp, 204, HTTPOk)
 
     @public
     @bucket_operation
     def DELETE(self, req):  # pylint: disable=invalid-name
         """
-        Handles DELETE Bucket CORs.
+        Handles DELETE Bucket CORS.
         """
         log_s3api_command(req, 'delete-bucket-cors')
         req.headers[BUCKET_CORS_HEADER] = ''
         resp = req._get_response(self.app, 'POST',
                                  req.container_name, None)
-        return self.convert(req, resp, 202, HTTPNoContent)
+        return self.convert_response(req, resp, 202, HTTPNoContent)
