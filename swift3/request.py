@@ -1455,8 +1455,10 @@ class Request(swob.Request):
         else:
             # otherwise we do naive HEAD request with the authentication
             resp = self.get_response(app, 'HEAD', self.container_name, '')
+            all_headers = dict(resp.sw_headers)
+            all_headers.update(resp.sysmeta_headers)
             return headers_to_container_info(
-                resp.sw_headers, resp.status_int)  # pylint: disable-msg=E1101
+                all_headers, resp.status_int)  # pylint: disable-msg=E1101
 
     def get_object_info(self, app, container_name=None, object_name=None):
         if container_name is None:
