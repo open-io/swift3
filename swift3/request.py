@@ -616,23 +616,43 @@ class Request(swob.Request):
         access, sig = auth_str.split(' ', 1)[1].rsplit(':', 1)
         return access, sig
 
+    def _is_allowed_anonymous_request(self):
+        """
+        Tell if the current request represents an allowed anonymous request.
+
+        Will return False if anonymous requests are disabled by configuration.
+        """
+        if not CONF.allow_anymous_path_request:
+            return False
+
+        if self._parse_host():
+            # Virtual-hosted style anonymous request
+            return True
+
+        src = self.environ['PATH_INFO'].lstrip('/').split('/', 2)[0]
+        if not src:
+            # Maybe a virtual-hosted style CORS request
+            return self.method == 'OPTIONS'
+        elif valid_api_version(src) or src in ('auth', 'info'):
+            # Not an S3 request
+            return False
+        # Path-style anonymous request
+        return True
+
     def _parse_auth_info(self):
         """Extract the access key identifier and signature.
 
         :returns: a tuple of access_key and signature
         :raises: NotS3Request
         """
-        src = self.environ['PATH_INFO'].lstrip('/').split('/', 2)[0]
         if self._is_query_auth:
             return self._parse_query_authentication()
         elif self._is_header_auth:
             return self._parse_header_authentication()
         # TODO(mb): check src against auth_prefix's tempauth
-        elif self.bucket_db and CONF.allow_anymous_path_request and \
-                src and src not in ('auth', 'info') and \
-                (self._parse_host() or (src and not valid_api_version(src))):
-            # Anonymous request, we will have to resolve account name
-            # from bucket name.
+        elif self.bucket_db and self._is_allowed_anonymous_request():
+            # This is an anonymous request, we will have to resolve the
+            # account name from the bucket name thanks to the bucket DB.
             return None, None
         else:
             # if this request is neither query auth nor header auth
