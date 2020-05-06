@@ -208,6 +208,8 @@ class TestSwift3Cors(Swift3TestCase):
                          'PUT, POST, DELETE')
         self.assertEqual(ret[1]['Access-Control-Max-Age'], '3000')
         self.assertEqual(ret[1]['Access-Control-Allow-Credentials'], 'true')
+        self.assertEqual(ret[1]['Access-Control-Allow-Headers'],
+                         'hdr-1, hdr-2')
         self.assertEqual(ret[1]['Access-Control-Expose-Headers'],
                          'x-amz-server-side-encryption')
 

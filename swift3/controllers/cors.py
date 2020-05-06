@@ -78,13 +78,13 @@ def get_cors(app, req, method, origin):
 
 def cors_fill_headers(req, resp, rule):
     def set_header_if_item(hdr, tag):
-        x = rule.find(tag)
-        if x is not None:
-            resp.headers[hdr] = x.text
+        val = rule.find(tag)
+        if val is not None:
+            resp.headers[hdr] = val.text
 
     def set_header_if_items(hdr, tag):
         vals = [m.text for m in rule.findall(tag)]
-        if len(vals):
+        if vals:
             resp.headers[hdr] = ', '.join(vals)
 
     # use from request as rule may contains wildcard
@@ -94,10 +94,10 @@ def cors_fill_headers(req, resp, rule):
         resp.headers['Access-Control-Allow-Origin'] = '*'
     else:
         resp.headers['Access-Control-Allow-Origin'] = req.headers.get('Origin')
-    set_header_if_item('Access-Control-Max-Age', 'MaxAgeSeconds')
+    set_header_if_items('Access-Control-Allow-Headers', 'AllowedHeader')
     set_header_if_items('Access-Control-Allow-Methods', 'AllowedMethod')
     set_header_if_items('Access-Control-Expose-Headers', 'ExposeHeader')
-    set_header_if_items('Access-Control-', 'AllowedHeaders')
+    set_header_if_item('Access-Control-Max-Age', 'MaxAgeSeconds')
     resp.headers['Access-Control-Allow-Credentials'] = 'true'
 
     return resp
