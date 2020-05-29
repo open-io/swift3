@@ -50,6 +50,8 @@ class BucketController(Controller):
         marker = ''
         seg = ''
 
+        # No cache to check if the container is really empty
+        oiocache = req.environ.pop('oio.cache', None)
         try:
             resp = req.get_response(self.app, 'HEAD')
             if int(resp.sw_headers['X-Container-Object-Count']) > 0:
@@ -61,6 +63,8 @@ class BucketController(Controller):
             # to handle if the segments can be deleted for each object.
         except NoSuchBucket:
             pass
+        finally:
+            req.environ['oio.cache'] = oiocache
 
         try:
             while True:
