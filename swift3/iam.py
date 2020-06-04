@@ -120,10 +120,10 @@ IamConditionOp = {
     "StringLike": string_like,
     "StringNotLike": lambda a, e: not string_like(a, e),
     # TODO(IAM): implement the following functions
-    # "IpAddress": None,
-    # "NotIpAddress": None,
-    # "StringEqualsIgnoreCase": None,
-    # "StringNotEqualsIgnoreCase": None,
+    "IpAddress": None,
+    "NotIpAddress": None,
+    "StringEqualsIgnoreCase": None,
+    "StringNotEqualsIgnoreCase": None,
 }
 
 
@@ -133,15 +133,15 @@ IamConditionKey = {
     "s3:max-keys": lambda req: req.params.get('max-keys'),
     "s3:prefix": lambda req: req.params.get('prefix'),
     # TODO(IAM): implement the following keys
-    # "aws:CurrentTime": None,
-    # "aws:EpochTime": None,
-    # "aws:SourceIp": None,
-    # "aws:UserAgent": None,
-    # "aws:userid": None,
-    # "s3:VersionId": None,
-    # "s3:x-amz-acl": None,
-    # "s3:x-amz-copy-source": None,
-    # "s3:x-amz-metadata-directive": None,
+    "aws:CurrentTime": None,
+    "aws:EpochTime": None,
+    "aws:SourceIp": None,
+    "aws:UserAgent": None,
+    "aws:userid": None,
+    "s3:VersionId": None,
+    "s3:x-amz-acl": None,
+    "s3:x-amz-copy-source": None,
+    "s3:x-amz-metadata-directive": None,
     # referer (bucket policy)
     # custom header with specific value
 }
@@ -210,7 +210,7 @@ class IamRulesMatcher(object):
         cond = statement.get('Condition', {})
         effect = statement['Effect']
         for opname, operands in cond.items():
-            if opname not in IamConditionOp:
+            if IamConditionOp.get(opname, None) is None:
                 if effect == RE_ALLOW:
                     self.logger.info(
                         "IAM: condition operator %s not implemented. Since "
@@ -225,7 +225,7 @@ class IamRulesMatcher(object):
                     continue
             operator = IamConditionOp[opname]
             for cond_key, values in operands.items():
-                if cond_key not in IamConditionKey:
+                if IamConditionKey.get(cond_key, None) is None:
                     if effect == RE_ALLOW:
                         self.logger.info(
                             "IAM: condition %s not implemented. Since it is "
