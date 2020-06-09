@@ -29,6 +29,7 @@ from swift3.subresource import ACL, ACLPrivate, User, encode_acl, \
 from swift3.test.unit.test_middleware import Swift3TestCase
 from swift3.cfg import CONF
 from swift3.test.unit.exceptions import NotMethodException
+from swift3.utils import VERSIONING_SUFFIX
 
 XMLNS_XSI = 'http://www.w3.org/2001/XMLSchema-instance'
 
@@ -126,6 +127,8 @@ def generate_s3acl_environ(account, swift, owner):
     # for bucket
     swift.register('HEAD', '/v1/AUTH_test/bucket', swob.HTTPNoContent,
                    container_headers, None)
+    swift.register('HEAD', '/v1/AUTH_test/bucket' + VERSIONING_SUFFIX,
+                   swob.HTTPNoContent, container_headers, None)
     swift.register('HEAD', '/v1/AUTH_test/bucket+segments', swob.HTTPNoContent,
                    container_headers, None)
     swift.register('PUT', '/v1/AUTH_test/bucket',

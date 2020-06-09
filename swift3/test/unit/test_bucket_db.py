@@ -19,6 +19,7 @@ from swift.common.utils import json
 from swift3.cfg import CONF
 from swift3.etree import fromstring
 from swift3.test.unit import Swift3TestCase
+from swift3.utils import VERSIONING_SUFFIX
 
 
 class TestSwift3BucketDb(Swift3TestCase):
@@ -40,6 +41,12 @@ class TestSwift3BucketDb(Swift3TestCase):
         self.swift.register(
             'HEAD', '/v1/AUTH_test/bucket', swob.HTTPNoContent,
             {'X-Container-Object-Count': 0}, None)
+        self.swift.register(
+            'GET', '/v1/AUTH_test/bucket', swob.HTTPOk,
+            {}, json.dumps([]))
+        self.swift.register(
+            'GET', '/v1/AUTH_test/bucket' + VERSIONING_SUFFIX, swob.HTTPOk,
+            {}, json.dumps([]))
         self.swift.register(
             'PUT', '/v1/AUTH_test/bucket+segments', swob.HTTPNoContent,
             {}, None)

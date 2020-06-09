@@ -27,6 +27,7 @@ from swift3.etree import Element, SubElement, fromstring, tostring
 from swift3.test.unit.test_s3_acl import s3acl
 from swift3.subresource import Owner, encode_acl, ACLPublicRead
 from swift3.request import MAX_32BIT_INT
+from swift3.utils import VERSIONING_SUFFIX
 
 
 class TestSwift3Bucket(Swift3TestCase):
@@ -802,6 +803,10 @@ class TestSwift3Bucket(Swift3TestCase):
 
     def _test_method_error_delete(self, path, sw_resp):
         self.swift.register('HEAD', '/v1/AUTH_test' + path, sw_resp, {}, None)
+        self.swift.register('GET', '/v1/AUTH_test' + path,
+                            sw_resp, {}, json.dumps([]))
+        self.swift.register('GET', '/v1/AUTH_test' + path + VERSIONING_SUFFIX,
+                            sw_resp, {}, json.dumps([]))
         return self._test_method_error('DELETE', path, sw_resp)
 
     @s3acl
@@ -827,6 +832,13 @@ class TestSwift3Bucket(Swift3TestCase):
         self.swift.register(
             'HEAD', '/v1/AUTH_test/bucket', swob.HTTPNoContent,
             {'X-Container-Object-Count': 0}, None)
+        # overwrite default GETs to return empty list
+        self.swift.register(
+            'GET', '/v1/AUTH_test/bucket',
+            swob.HTTPOk, {}, json.dumps([]))
+        self.swift.register(
+            'GET', '/v1/AUTH_test/bucket' + VERSIONING_SUFFIX,
+            swob.HTTPOk, {}, json.dumps([]))
 
         req = Request.blank('/bucket',
                             environ={'REQUEST_METHOD': 'DELETE'},
@@ -844,6 +856,13 @@ class TestSwift3Bucket(Swift3TestCase):
         self.swift.register(
             'HEAD', '/v1/AUTH_test/bucket', swob.HTTPNoContent,
             {'X-Container-Object-Count': 0}, None)
+        # overwrite default GETs to return empty list
+        self.swift.register(
+            'GET', '/v1/AUTH_test/bucket',
+            swob.HTTPOk, {}, json.dumps([]))
+        self.swift.register(
+            'GET', '/v1/AUTH_test/bucket' + VERSIONING_SUFFIX,
+            swob.HTTPOk, {}, json.dumps([]))
 
         req = Request.blank('/bucket',
                             environ={'REQUEST_METHOD': 'DELETE'},

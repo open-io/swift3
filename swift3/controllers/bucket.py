@@ -66,6 +66,30 @@ class BucketController(Controller):
         finally:
             req.environ['oio.cache'] = oiocache
 
+        # 'X-Container-Object-Count' isn't correct with some middleware
+        # To be sure, list the bucket
+        try:
+            resp = req.get_response(
+                self.app, 'GET',
+                query={'format': 'json', 'limit': 1})
+            objs = json.loads(resp.body)
+            if len(objs) > 0:
+                raise BucketNotEmpty()
+        except NoSuchBucket:
+            pass
+        req.container_name += VERSIONING_SUFFIX
+        try:
+            resp = req.get_response(
+                self.app, 'GET',
+                query={'format': 'json', 'limit': 1})
+            objs = json.loads(resp.body)
+            if len(objs) > 0:
+                raise BucketNotEmpty()
+        except NoSuchBucket:
+            pass
+        finally:
+            req.container_name = req.container_name[:-len(VERSIONING_SUFFIX)]
+
         try:
             while True:
                 # delete all segments
