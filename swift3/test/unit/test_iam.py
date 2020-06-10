@@ -152,6 +152,45 @@ class TestSwift3Iam(TestCase):
         self.assertEqual((EXPLICIT_ALLOW, 'AllowWildcard-3'),
                          check(rsc, "s3:GetObject"))
 
+    def test_bucket_and_object_wildcards(self):
+        rules = json.loads("""
+        {
+            "Statement": [
+                {
+                    "Action": [
+                        "s3:*"
+                    ],
+                    "Effect": "Allow",
+                    "Resource": [
+                        "arn:aws:s3:::s3rt*"
+                    ],
+                    "Sid": "S3RoundtripBucket"
+                },
+                {
+                    "Action": [
+                        "s3:*"
+                    ],
+                    "Effect": "Allow",
+                    "Resource": [
+                        "arn:aws:s3:::s3rt*/*"
+                    ],
+                    "Sid": "S3RoundtripObjects"
+                }
+            ]
+        }
+        """)
+        check = IamRulesMatcher(rules)
+        bkt_res = IamResource("s3rt-test")
+        self.assertEqual((EXPLICIT_ALLOW, 'S3RoundtripBucket'),
+                         check(bkt_res, "s3:CreateBucket"))
+        obj_res = IamResource("s3rt-test/hosts")
+        self.assertEqual((EXPLICIT_ALLOW, 'S3RoundtripObjects'),
+                         check(obj_res, "s3:PutObject"))
+
+        obj_res2 = IamResource("s3ru-test/hosts")
+        self.assertEqual((None, None),
+                         check(obj_res2, "s3:PutObject"))
+
     def test_statement_condition_stringequals(self):
         rules = json.loads("""{
             "Statement": [

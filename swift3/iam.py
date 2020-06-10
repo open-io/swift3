@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from fnmatch import fnmatch
+from fnmatch import fnmatchcase
 from functools import wraps
 
 from swift.common.utils import config_auto_int_value, get_logger, LRUCache
@@ -23,12 +23,11 @@ from swift3.response import AccessDenied
 from swift3.utils import LOGGER
 
 
-ARN_S3_PREFIX = "arn:aws:s3:::"
+ARN_AWS_PREFIX = "arn:aws:"
+ARN_S3_PREFIX = ARN_AWS_PREFIX + "s3:::"
 
-# Match every bucket or object
-ARN_WILDCARD_EVERYTHING = ARN_S3_PREFIX + "*"
-# Match every object (but not buckets)
-ARN_WILDCARD_OBJECTS = ARN_S3_PREFIX + "*/*"
+# Match every bucket
+ARN_WILDCARD_BUCKET = ARN_S3_PREFIX + "*"
 
 ACTION_WILDCARD = "s3:*"
 EXPLICIT_ALLOW = "ALLOW"
@@ -67,7 +66,7 @@ class IamResource(object):
     """
 
     def __init__(self, name):
-        if name.startswith(ARN_S3_PREFIX):
+        if name.startswith(ARN_AWS_PREFIX):
             self._resource_name = name
         else:
             self._resource_name = ARN_S3_PREFIX + name
@@ -108,7 +107,7 @@ def string_like(actual, expected):
     if actual is None:
         return False
     for pattern in expected:
-        if fnmatch(actual, pattern):
+        if fnmatchcase(actual, pattern):
             return True
     return False
 
@@ -280,34 +279,27 @@ class IamRulesMatcher(object):
             for resource_str in statement['Resource']:
                 rule_res = IamResource(resource_str)
 
-                # check WildCard before everything else
-                if (rule_res.arn == ARN_WILDCARD_EVERYTHING and
+                # check wildcards before everything else
+                if (rule_res.arn == ARN_WILDCARD_BUCKET and
                         self.check_condition(statement, req)):
                     self.logger.info('%s: matches everything', sid)
                     return True, sid
 
-                if (req_res.type == RT_OBJECT and
-                        rule_res.arn == ARN_WILDCARD_OBJECTS and
-                        self.check_condition(statement, req)):
-                    self.logger.info('%s: matches every object', sid)
-                    return True, sid
-
+                # Ensure the requested and the current resource are of the
+                # same type. The specification says that a wildcard in the
+                # bucket name should not match objects (stop at first slash).
                 if rule_res.type != req_res.type:
                     self.logger.info('%s: skip, resource types do not match',
                                      sid)
                     continue
 
-                if (rule_res.arn == req_res.arn and
+                # Do a case-sensitive match between the requested resource
+                # and the resource of the current rule.
+                if (fnmatchcase(req_res.arn, rule_res.arn) and
                         self.check_condition(statement, req)):
-                    self.logger.info('%s: found exact match', sid)
+                    self.logger.info('%s: wildcard or exact match', sid)
                     return True, sid
-                if rule_res.arn.endswith('*'):
-                    root_path = rule_res.arn[:-1]
-                    if (req_res.arn.startswith(root_path) and
-                            self.check_condition(statement, req)):
-                        self.logger.info('%s: found object match (wildcard)',
-                                         sid)
-                        return True, sid
+
         self.logger.info('No %s match found', effect)
         return False, None
 
