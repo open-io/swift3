@@ -625,6 +625,9 @@ class Request(swob.Request):
         if not CONF.allow_anymous_path_request:
             return False
 
+        if not self._is_anonymous:
+            return False
+
         if self._parse_host():
             # Virtual-hosted style anonymous request
             return True
@@ -1440,7 +1443,8 @@ class Request(swob.Request):
         :raises: NoSuchBucket when the container doesn't exist
         :raises: InternalError when the request failed without 404
         """
-        if self.is_authenticated:
+        if self.is_authenticated or \
+                self.bucket_db and self._is_allowed_anonymous_request():
             # if we have already authenticated, yes we can use the account
             # name like as AUTH_xxx for performance efficiency
             sw_req = self.to_swift_req(app, self.container_name, None)

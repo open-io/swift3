@@ -18,6 +18,7 @@ from xml.etree import ElementTree as ET
 
 from swift.common.swob import Request, HTTPNoContent
 
+from swift3.cfg import CONF
 from swift3.test.unit import Swift3TestCase
 from swift3.controllers.cors import BUCKET_CORS_HEADER
 
@@ -56,7 +57,10 @@ def build_xml(rules):
 
 class TestSwift3Cors(Swift3TestCase):
     def setUp(self):
+        # Trick to load a dummy bucket DB
+        CONF.bucket_db_enabled = True
         super(TestSwift3Cors, self).setUp()
+        self.swift3.bucket_db.set_owner('test-cors', 'AUTH_test')
 
     def _cors_GET(self, path):
         req = Request.blank('%s?cors' % path,
