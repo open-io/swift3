@@ -220,6 +220,41 @@ class RedisBucketDb(RedisConnection):
         self.conn.delete(self._key(bucket))
 
 
+class BucketDbWrapper(object):
+    """
+    Memoizer for bucket DB. It is intended to have the same life cycle
+    as an S3 request.
+    """
+
+    def __init__(self, bucket_db):
+        self.bucket_db = bucket_db
+        self.cache = dict()
+
+    def get_owner(self, bucket, **kwargs):
+        cached = self.cache.get(bucket)
+        if cached:
+            return cached
+        owner = self.bucket_db.get_owner(bucket=bucket, **kwargs)
+        self.cache[bucket] = owner
+        return owner
+
+    def set_owner(self, bucket, owner, **kwargs):
+        res = self.bucket_db.set_owner(bucket=bucket, owner=owner, **kwargs)
+        if res:
+            self.cache[bucket] = owner
+        return res
+
+    def release(self, bucket, **kwargs):
+        self.cache.pop(bucket, None)
+        return self.bucket_db.release(bucket=bucket, **kwargs)
+
+    def reserve(self, bucket, owner, **kwargs):
+        res = self.bucket_db.reserve(bucket=bucket, owner=owner, **kwargs)
+        if res:
+            self.cache[bucket] = owner
+        return res
+
+
 def get_bucket_db(conf):
     """
     If `bucket_db_enabled` is set in `conf`, get the bucket database,

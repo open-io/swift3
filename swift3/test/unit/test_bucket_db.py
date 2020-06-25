@@ -16,6 +16,7 @@
 from swift.common import swob
 from swift.common.swob import Request
 from swift.common.utils import json
+from swift3.bucket_db import BucketDbWrapper
 from swift3.cfg import CONF
 from swift3.etree import fromstring
 from swift3.test.unit import Swift3TestCase
@@ -53,6 +54,7 @@ class TestSwift3BucketDb(Swift3TestCase):
         self.swift.register(
             'GET', '/v1/AUTH_test/bucket+segments?format=json&marker=',
             swob.HTTPNotFound, {}, None)
+        self.swift3.bucket_db = BucketDbWrapper(self.swift3.bucket_db)
 
     @property
     def db(self):
