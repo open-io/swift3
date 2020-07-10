@@ -29,6 +29,9 @@ from swift3.subresource import Owner, encode_acl, ACLPublicRead
 from swift3.request import MAX_32BIT_INT
 from swift3.utils import VERSIONING_SUFFIX
 
+# Example etag from ProxyFS; note that it is already quote-wrapped
+PFS_ETAG = '"pfsv2/AUTH_test/01234567/89abcdef-32"'
+
 
 class TestSwift3Bucket(Swift3TestCase):
     def setup_objects(self):
@@ -37,6 +40,8 @@ class TestSwift3Bucket(Swift3TestCase):
                         ('lily', '2011-01-05T02:19:14.275290', '0', '3909'),
                         ('mu', '2011-01-05T02:19:14.275290',
                          'md5-of-the-manifest; s3_etag=0', '3909'),
+                        ('pfs-obj', '2011-01-05T02:19:14.275290',
+                         PFS_ETAG, '3909'),
                         ('slo', '2011-01-05T02:19:14.275290',
                          'md5-of-the-manifest', '3909'),
                         ('with space', '2011-01-05T02:19:14.275290', 0, 390),
@@ -46,7 +51,7 @@ class TestSwift3Bucket(Swift3TestCase):
             {'name': str(item[0]), 'last_modified': str(item[1]),
              'hash': str(item[2]), 'bytes': str(item[3])}
             for item in self.objects]
-        objects[4]['slo_etag'] = '"0"'
+        objects[5]['slo_etag'] = '"0"'
         object_list = json.dumps(objects)
 
         self.prefixes = ['rose', 'viola', 'lily']
@@ -164,7 +169,9 @@ class TestSwift3Bucket(Swift3TestCase):
             self.assertEqual('2011-01-05T02:19:14.275Z',
                              o.find('./LastModified').text)
         self.assertEqual(items, [
-            (i[0].encode('utf-8'), '"0-N"' if i[0] == 'slo' else '"0"')
+            (i[0].encode('utf-8'),
+             PFS_ETAG if i[0] == 'pfs-obj' else
+             '"0-N"' if i[0] == 'slo' else '"0"')
             for i in self.objects])
 
     def test_bucket_GET_subdir(self):
@@ -513,7 +520,8 @@ class TestSwift3Bucket(Swift3TestCase):
         self.assertEqual([v.find('./LastModified').text for v in versions],
                          [v[1][:-3] + 'Z' for v in objects])
         self.assertEqual([v.find('./ETag').text for v in versions],
-                         ['"0-N"' if v[0] == 'slo' else '"0"'
+                         [PFS_ETAG if v[0] == 'pfs-obj' else
+                          '"0-N"' if v[0] == 'slo' else '"0"'
                           for v in objects])
         self.assertEqual([v.find('./Size').text for v in versions],
                          [str(v[3]) for v in objects])
@@ -559,14 +567,14 @@ class TestSwift3Bucket(Swift3TestCase):
         self.assertEqual(delete_markers[0].find('./Key').text, 'rose')
         versions = elem.findall('./Version')
         self.assertEqual(len(versions), len(self.objects) + 1)
-        self.assertEqual(versions[3].find('./IsLatest').text, 'false')
-        self.assertEqual(versions[3].find('./VersionId').text, '1')
+        self.assertEqual(versions[4].find('./IsLatest').text, 'false')
+        self.assertEqual(versions[4].find('./VersionId').text, '1')
         # Test that version id is retrieved from sysmeta
-        self.assertEqual(versions[2].find('./VersionId').text, '3')
-        self.assertEqual(versions[3].find('./Key').text, 'rose')
+        self.assertEqual(versions[3].find('./VersionId').text, '3')
+        self.assertEqual(versions[4].find('./Key').text, 'rose')
 
         # with max keys
-        req = Request.blank('/junk?versions&max-keys=4',
+        req = Request.blank('/junk?versions&max-keys=5',
                             environ={'REQUEST_METHOD': 'GET'},
                             headers={'Authorization': 'AWS test:tester:hmac',
                                      'Date': self.get_date_header()})
@@ -574,18 +582,18 @@ class TestSwift3Bucket(Swift3TestCase):
 
         self.assertEqual(status.split()[0], '200')
         elem = fromstring(body, 'ListVersionsResult')
-        self.assertEqual(elem.find('./MaxKeys').text, '4')
+        self.assertEqual(elem.find('./MaxKeys').text, '5')
         self.assertEqual(elem.find('./IsTruncated').text, 'true')
         delete_markers = elem.findall('./DeleteMarker')
         self.assertEqual(len(delete_markers), 1)
         versions = elem.findall('./Version')
-        self.assertEqual(len(versions), 3)
+        self.assertEqual(len(versions), 4)
         self.assertEqual([v.find('./Key').text for v in versions],
-                         ['lily', 'mu', 'rose'])
+                         ['lily', 'mu', 'pfs-obj', 'rose'])
         self.assertEqual([v.find('./VersionId').text for v in versions],
-                         ['null', 'null', '3'])
+                         ['null', 'null', 'null', '3'])
         self.assertEqual([v.find('./IsLatest').text for v in versions],
-                         ['true', 'true', 'true'])
+                         ['true', 'true', 'true', 'true'])
 
         # with key-marker
         req = Request.blank('/junk?versions&max-keys=2&key-marker=rose',
@@ -622,7 +630,7 @@ class TestSwift3Bucket(Swift3TestCase):
         delete_markers = elem.findall('./DeleteMarker')
         self.assertEqual(len(delete_markers), 0)
         versions = elem.findall('./Version')
-        self.assertEqual(len(versions), len(self.objects) - 2)
+        self.assertEqual(len(versions), len(self.objects) - 3)
         self.assertEqual(versions[0].find('./Key').text, 'rose')
         self.assertEqual(versions[0].find('./VersionId').text, '1')
         self.assertEqual(versions[0].find('./IsLatest').text, 'false')
@@ -641,7 +649,7 @@ class TestSwift3Bucket(Swift3TestCase):
         delete_markers = elem.findall('./DeleteMarker')
         self.assertEqual(len(delete_markers), 0)
         versions = elem.findall('./Version')
-        self.assertEqual(len(versions), len(self.objects) - 3)
+        self.assertEqual(len(versions), len(self.objects) - 4)
         self.assertEqual(versions[0].find('./Key').text, 'slo')
         self.assertEqual(versions[0].find('./IsLatest').text, 'true')
         self.assertEqual(versions[0].find('./VersionId').text, 'null')
