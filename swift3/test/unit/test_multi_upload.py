@@ -1431,6 +1431,16 @@ class TestSwift3MultiUpload(Swift3TestCase):
         _, _, headers = self.swift.calls_with_headers[-1]
         self.assertEqual(headers['X-Copy-From'], '/src_bucket/src_obj')
         self.assertEqual(headers['Content-Length'], '0')
+        # Some headers *need* to get cleared in case we're copying from
+        # another multipart upload
+        for header in (
+            # 'X-Object-Sysmeta-S3api-Etag',
+            'X-Object-Sysmeta-Slo-Etag',
+            'X-Object-Sysmeta-Slo-Size',
+            'X-Object-Sysmeta-Container-Update-Override-Etag',
+            'X-Object-Sysmeta-Swift3-Etag',
+        ):
+            self.assertEqual(headers[header], '')
 
     @s3acl(s3acl_only=True)
     def test_upload_part_copy_acl_with_owner_permission(self):
