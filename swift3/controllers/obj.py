@@ -14,13 +14,14 @@
 # limitations under the License.
 
 from swift.common.http import HTTP_OK, HTTP_PARTIAL_CONTENT, HTTP_NO_CONTENT
+from swift.common.request_helpers import update_etag_is_at_header
 from swift.common.middleware.versioned_writes import \
     DELETE_MARKER_CONTENT_TYPE
 from swift.common.swob import Range, content_range_header_value
 from swift.common.utils import public
 
 from swift3.utils import S3Timestamp, VERSIONING_SUFFIX, \
-    versioned_object_name, log_s3api_command
+    versioned_object_name, log_s3api_command, sysmeta_header
 from swift3.controllers.base import Controller
 from swift3.controllers.cors import get_cors, cors_fill_headers, \
     CORS_ALLOWED_HTTP_METHOD
@@ -69,6 +70,11 @@ class ObjectController(Controller):
         return resp
 
     def GETorHEAD(self, req):
+        if any(match_header in req.headers
+               for match_header in ('if-match', 'if-none-match')):
+            # Update where to look
+            update_etag_is_at_header(req, sysmeta_header('object', 'etag'))
+
         object_name = req.object_name
         version_id = req.params.get('versionId')
         if version_id and version_id != 'null':

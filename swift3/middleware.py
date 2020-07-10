@@ -52,11 +52,16 @@ following for an SAIO setup::
         calling_format=boto.s3.connection.OrdinaryCallingFormat())
 """
 
+from cgi import parse_header
+import json
 from paste.deploy import loadwsgi
 
 from swift.common.http import is_success
 from swift.common.utils import closing_if_possible, get_logger, \
     register_swift_info, split_path
+from swift.common.constraints import valid_api_version
+from swift.common.middleware.listing_formats import \
+    MAX_CONTAINER_LISTING_CONTENT_LENGTH
 from swift.common.wsgi import PipelineWrapper, loadcontext, WSGIContext
 from swift.proxy.controllers.base import get_container_info
 
@@ -68,6 +73,86 @@ from swift3.response import ErrorResponse, InternalError, MethodNotAllowed, \
 from swift3.bucket_db import get_bucket_db, BucketDbWrapper
 from swift3.cfg import CONF
 from swift3.utils import LOGGER
+
+
+class ListingEtagMiddleware(object):
+    def __init__(self, app):
+        self.app = app
+
+    def __call__(self, env, start_response):
+        # a lot of this is cribbed from listing_formats / swob.Request
+        if env['REQUEST_METHOD'] != 'GET':
+            # Nothing to translate
+            return self.app(env, start_response)
+
+        try:
+            v, a, c = split_path(env.get('SCRIPT_NAME', '') +
+                                 env['PATH_INFO'], 3, 3)
+            if not valid_api_version(v):
+                raise ValueError
+        except ValueError:
+            # not a container request; pass through
+            return self.app(env, start_response)
+
+        ctx = WSGIContext(self.app)
+        resp_iter = ctx._app_call(env)
+
+        content_type = content_length = cl_index = None
+        for index, (header, value) in enumerate(ctx._response_headers):
+            header = header.lower()
+            if header == 'content-type':
+                content_type = value.split(';', 1)[0].strip()
+                if content_length:
+                    break
+            elif header == 'content-length':
+                cl_index = index
+                try:
+                    content_length = int(value)
+                except ValueError:
+                    pass  # ignore -- we'll bail later
+                if content_type:
+                    break
+
+        if content_type != 'application/json' or content_length is None:
+            start_response(ctx._response_status, ctx._response_headers,
+                           ctx._response_exc_info)
+            return resp_iter
+        if content_length > MAX_CONTAINER_LISTING_CONTENT_LENGTH:
+            LOGGER.warn(
+                'The content length (%d) of the listing is too long (max=%d)',
+                content_length, MAX_CONTAINER_LISTING_CONTENT_LENGTH)
+            start_response(ctx._response_status, ctx._response_headers,
+                           ctx._response_exc_info)
+            return resp_iter
+
+        # We've done our sanity checks, slurp the response into memory
+        with closing_if_possible(resp_iter):
+            body = b''.join(resp_iter)
+
+        try:
+            listing = json.loads(body)
+            for item in listing:
+                if 'subdir' in item:
+                    continue
+                value, params = parse_header(item['hash'])
+                if 's3_etag' in params:
+                    item['s3_etag'] = '"%s"' % params.pop('s3_etag')
+                    item['hash'] = value + ''.join(
+                        '; %s=%s' % kv for kv in params.items())
+        except (TypeError, KeyError, ValueError):
+            # If anything goes wrong above, drop back to original response
+            start_response(ctx._response_status, ctx._response_headers,
+                           ctx._response_exc_info)
+            return [body]
+
+        body = json.dumps(listing)
+        ctx._response_headers[cl_index] = (
+            ctx._response_headers[cl_index][0],
+            str(len(body)),
+        )
+        start_response(ctx._response_status, ctx._response_headers,
+                       ctx._response_exc_info)
+        return [body]
 
 
 class MissingDeleteOk(object):
@@ -237,6 +322,6 @@ def filter_factory(global_conf, **local_conf):
     )
 
     def swift3_filter(app):
-        return Swift3Middleware(app, CONF)
+        return Swift3Middleware(ListingEtagMiddleware(app), CONF)
 
     return swift3_filter

@@ -20,7 +20,7 @@ from functools import partial
 from swift.common import swob
 from swift.common.utils import config_true_value
 
-from swift3.utils import snake_to_camel, sysmeta_prefix, extract_s3_etag
+from swift3.utils import snake_to_camel, sysmeta_prefix, sysmeta_header
 from swift3.etree import Element, SubElement, tostring
 
 
@@ -78,10 +78,6 @@ class Response(ResponseBase, swob.Response):
     def __init__(self, *args, **kwargs):
         swob.Response.__init__(self, *args, **kwargs)
 
-        if self.etag:
-            # add double quotes to the etag header
-            self.etag = self.etag
-
         sw_sysmeta_headers = swob.HeaderKeyDict()
         sw_headers = swob.HeaderKeyDict()
         headers = HeaderKeyDict()
@@ -116,23 +112,20 @@ class Response(ResponseBase, swob.Response):
                 # for delete slo
                 self.is_slo = config_true_value(val)
 
-        if self.is_slo:  # and 'etag' in headers
+        # Check whether we stored the AWS-style etag on upload
+        override_etag = sw_sysmeta_headers.get(
+            sysmeta_header('object', 'etag'))
+        if override_etag is not None:
             # Multipart uploads in AWS have ETags like
             #   <MD5(part_etag1 || ... || part_etagN)>-<number of parts>
-            if '-' not in headers.get('etag', ''):
-                if 's3_etag' in headers.get('content-type', ''):
-                    # ETag was computed at upload, and saved in content-type
-                    ctype, s3_etag = extract_s3_etag(headers['content-type'])
-                    headers['etag'] = '"%s"' % s3_etag
-                    headers['content-type'] = ctype
-                else:
-                    # Many AWS clients use the presence of a '-' to decide
-                    # whether to attempt client-side download validation,
-                    # so tack on a '-N' ('N' because we don't actually know
-                    # how many parts there are).
-                    headers['etag'] = '"%s-N"' % self.etag
+            headers['etag'] = override_etag
 
         self.headers = headers
+
+        if self.etag:
+            # add double quotes to the etag header
+            self.etag = self.etag
+
         # Used for pure swift header handling at the request layer
         self.sw_headers = sw_headers
         self.sysmeta_headers = sw_sysmeta_headers

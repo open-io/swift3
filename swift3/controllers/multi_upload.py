@@ -42,11 +42,11 @@ upload information:
    Static Large Object.
 """
 
+import binascii
 import os
 import re
 
 from hashlib import md5
-from binascii import unhexlify
 
 from swift.common.swob import Range
 from swift.common.utils import json, public, close_if_possible
@@ -62,7 +62,7 @@ from swift3.response import InvalidArgument, ErrorResponse, MalformedXML, \
     InvalidRequest, HTTPOk, HTTPNoContent, NoSuchKey, NoSuchUpload, \
     NoSuchBucket, InvalidRange, BadDigest
 from swift3.utils import LOGGER, unique_id, MULTIUPLOAD_SUFFIX, S3Timestamp, \
-    extract_s3_etag, log_s3api_command
+    log_s3api_command, sysmeta_header
 from swift3.etree import Element, SubElement, fromstring, tostring, \
     XMLSyntaxError, DocumentInvalid
 from swift3.cfg import CONF
@@ -207,17 +207,18 @@ class PartController(Controller):
         part_number = self.parse_part_number(req)
 
         # Get the list of parts. Must be raw to get all response headers.
-        slo_req = req.to_swift_req('GET', req.container_name, req.object_name,
-                                   query={'multipart-manifest': 'get',
-                                          'format': 'raw'})
-        slo_resp = slo_req.get_response(self.app)
+        slo_resp = req.get_response(
+            self.app, 'GET', req.container_name, req.object_name,
+            query={'multipart-manifest': 'get', 'format': 'raw'})
 
         # Check if the object is really a SLO. If not, and user asked
         # for the first part, do a regular request.
-        if 'X-Static-Large-Object' not in slo_resp.headers:
+        if 'X-Static-Large-Object' not in slo_resp.sw_headers:
             close_if_possible(slo_resp.app_iter)
             if part_number == 1:
-                return req.get_response(self.app)
+                # Clear body
+                slo_resp.body = ''
+                return slo_resp
             else:
                 raise InvalidRange()
 
@@ -236,13 +237,16 @@ class PartController(Controller):
         req.object_name = req.object_name.encode('utf8')
         resp = req.get_response(self.app)
 
-        # Get the content-type and etag of the object, not the part
-        ctype, etag = extract_s3_etag(slo_resp.headers['Content-Type'])
-        resp.headers['Content-Type'] = ctype
-        if etag:
-            resp.headers['ETag'] = '"%s"' % etag
-        resp.headers['X-Amz-Mp-Parts-Count'] = len(slo)
-        return resp
+        # Clear body
+        slo_resp.body = ''
+        # Update with the size of the part
+        slo_resp.headers['Content-Length'] = \
+            resp.headers.get('Content-Length', 0)
+        slo_resp.sw_headers['Content-Length'] = \
+            slo_resp.headers['Content-Length']
+        # Add the number of parts in this object
+        slo_resp.headers['X-Amz-Mp-Parts-Count'] = len(slo)
+        return slo_resp
 
 
 class UploadsController(Controller):
@@ -634,12 +638,7 @@ class UploadController(Controller):
                           'etag': o['hash'],
                           'size_bytes': o['bytes']}) for o in objinfo)
 
-        etag_hash = md5()
-        for obj in objinfo:
-            etag_hash.update(unhexlify(obj['hash']))
-        s3_etag = "%s-%d" % (etag_hash.hexdigest(), len(objinfo))
-        headers['Content-Type'] += ";s3_etag=%s" % s3_etag
-
+        s3_etag_hasher = md5()
         manifest = []
         previous_number = 0
         try:
@@ -674,6 +673,8 @@ class UploadController(Controller):
                 if info is None or info['etag'] != etag:
                     raise InvalidPart(upload_id=upload_id,
                                       part_number=part_number)
+
+                s3_etag_hasher.update(binascii.a2b_hex(etag))
                 info['size_bytes'] = int(info['size_bytes'])
                 manifest.append(info)
         except (XMLSyntaxError, DocumentInvalid):
@@ -683,6 +684,12 @@ class UploadController(Controller):
         except Exception as e:
             LOGGER.error(e)
             raise
+
+        s3_etag = '%s-%d' % (s3_etag_hasher.hexdigest(), len(manifest))
+        headers[sysmeta_header('object', 'etag')] = s3_etag
+        # Leave base header value blank; SLO will populate
+        c_etag = '; s3_etag=%s' % s3_etag
+        headers['X-Object-Sysmeta-Container-Update-Override-Etag'] = c_etag
 
         # Following swift commit 7f636a5, zero-byte segments aren't allowed,
         # even as the final segment

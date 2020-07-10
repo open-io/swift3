@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import base64
-from hashlib import md5
+import hashlib
 from mock import patch
 import os
 import time
@@ -38,43 +38,48 @@ from swift3.request import MAX_32BIT_INT
 xml = '<CompleteMultipartUpload>' \
     '<Part>' \
     '<PartNumber>1</PartNumber>' \
-    '<ETag>0000</ETag>' \
+    '<ETag>0123456789abcdef</ETag>' \
     '</Part>' \
     '<Part>' \
     '<PartNumber>2</PartNumber>' \
-    '<ETag>"0000"</ETag>' \
+    '<ETag>"fedcba9876543210"</ETag>' \
     '</Part>' \
     '</CompleteMultipartUpload>'
 
 object_manifest = \
     [{'bytes': 11,
       'content_type': 'application/octet-stream',
-      'etag': '0000',
+      'etag': '0123456789abcdef',
       'last_modified': '2018-05-21T08:40:58.000000',
       'path': '/bucket+segments/object/X/1'},
      {'bytes': 21,
       'content_type': 'application/octet-stream',
-      'etag': '0000',
+      'etag': 'fedcba9876543210',
       'last_modified': '2018-05-21T08:40:59.000000',
       'path': '/bucket+segments/object/X/2'}]
 
 objects_template = \
-    (('object/X/1', '2014-05-07T19:47:51.592270', '0000', 100),
-     ('object/X/2', '2014-05-07T19:47:52.592270', '0000', 200))
+    (('object/X/1', '2014-05-07T19:47:51.592270', '0123456789abcdef', 100),
+     ('object/X/2', '2014-05-07T19:47:52.592270', 'fedcba9876543210', 200))
 
 multiparts_template = \
-    (('object/X', '2014-05-07T19:47:50.592270', '0000', 1),
-     ('object/X/1', '2014-05-07T19:47:51.592270', '0000', 11),
-     ('object/X/2', '2014-05-07T19:47:52.592270', '0000', 21),
-     ('object/Y', '2014-05-07T19:47:53.592270', '0000', 2),
-     ('object/Y/1', '2014-05-07T19:47:54.592270', '0000', 12),
-     ('object/Y/2', '2014-05-07T19:47:55.592270', '0000', 22),
-     ('object/Z', '2014-05-07T19:47:56.592270', '0000', 3),
-     ('object/Z/1', '2014-05-07T19:47:57.592270', '0000', 13),
-     ('object/Z/2', '2014-05-07T19:47:58.592270', '0000', 23),
-     ('subdir/object/Z', '2014-05-07T19:47:58.592270', '0000', 4),
-     ('subdir/object/Z/1', '2014-05-07T19:47:58.592270', '0000', 41),
-     ('subdir/object/Z/2', '2014-05-07T19:47:58.592270', '0000', 41))
+    (('object/X', '2014-05-07T19:47:50.592270', 'HASH', 1),
+     ('object/X/1', '2014-05-07T19:47:51.592270', '0123456789abcdef', 11),
+     ('object/X/2', '2014-05-07T19:47:52.592270', 'fedcba9876543210', 21),
+     ('object/Y', '2014-05-07T19:47:53.592270', 'HASH', 2),
+     ('object/Y/1', '2014-05-07T19:47:54.592270', '0123456789abcdef', 12),
+     ('object/Y/2', '2014-05-07T19:47:55.592270', 'fedcba9876543210', 22),
+     ('object/Z', '2014-05-07T19:47:56.592270', 'HASH', 3),
+     ('object/Z/1', '2014-05-07T19:47:57.592270', '0123456789abcdef', 13),
+     ('object/Z/2', '2014-05-07T19:47:58.592270', 'fedcba9876543210', 23),
+     ('subdir/object/Z', '2014-05-07T19:47:58.592270', 'HASH', 4),
+     ('subdir/object/Z/1', '2014-05-07T19:47:58.592270', '0123456789abcdef',
+      41),
+     ('subdir/object/Z/2', '2014-05-07T19:47:58.592270', 'fedcba9876543210',
+      41))
+
+s3_etag = '"%s-2"' % hashlib.md5(
+    '0123456789abcdeffedcba9876543210'.decode('hex')).hexdigest()
 
 
 class TestSwift3MultiUpload(Swift3TestCase):
@@ -118,14 +123,13 @@ class TestSwift3MultiUpload(Swift3TestCase):
         mp_manifest = bucket + '/object?format=raw&multipart-manifest=get'
         self.swift.register('GET', mp_manifest,
                             swob.HTTPOk,
-                            {'content-type':
-                                'application/x-sharedlib;s3_etag=0002-2',
-                             'etag': '0001',
+                            {'content-type': 'application/x-sharedlib',
+                             'X-Object-Sysmeta-Swift3-Etag': s3_etag,
                              'X-Static-Large-Object': 'True'},
                             json.dumps(object_manifest))
         self.swift.register('HEAD', segment_bucket + '/object/X/1',
                             swob.HTTPOk,
-                            {'etag': '0000',
+                            {'etag': '0123456789abcdef',
                              'content-type': 'application/octet-stream',
                              'content-length': '11'},
                             None)
@@ -638,24 +642,38 @@ class TestSwift3MultiUpload(Swift3TestCase):
         self.assertEqual(self._get_error_code(body), 'NoSuchBucket')
 
     def test_object_multipart_upload_complete(self):
-        content_md5 = base64.b64encode(md5(xml).digest())
         req = Request.blank('/bucket/object?uploadId=X',
                             environ={'REQUEST_METHOD': 'POST'},
                             headers={'Authorization': 'AWS test:tester:hmac',
-                                     'Date': self.get_date_header(),
-                                     'Content-MD5': content_md5, },
+                                     'Date': self.get_date_header(), },
                             body=xml)
         status, headers, body = self.call_swift3(req)
         elem = fromstring(body, 'CompleteMultipartUploadResult')
         self.assertNotIn('Etag', headers)
-        self.assertEqual(elem.find('ETag').text,
-                         '"f1d3ff8443297732862df21dc4e57262-2"')
+        self.assertEqual(elem.find('ETag').text, s3_etag)
         self.assertEqual(status.split()[0], '200')
+
+        self.assertEqual(self.swift.calls, [
+            # Bucket exists
+            ('HEAD', '/v1/AUTH_test/bucket'),
+            # Segment container exists
+            ('HEAD', '/v1/AUTH_test/bucket+segments/object/X'),
+            # Get the currently-uploaded segments
+            ('GET', '/v1/AUTH_test/bucket+segments?delimiter=/'
+                    '&format=json&prefix=object/X/'),
+            # Create the SLO
+            ('PUT', '/v1/AUTH_test/bucket/object?multipart-manifest=put'),
+            # Delete the in-progress-upload marker
+            ('DELETE', '/v1/AUTH_test/bucket+segments/object/X')
+        ])
 
         _, _, headers = self.swift.calls_with_headers[-2]
         self.assertEqual(headers.get('X-Object-Meta-Foo'), 'bar')
-        self.assertEqual(headers.get('Content-Type'),
-                         'baz/quux;s3_etag=f1d3ff8443297732862df21dc4e57262-2')
+        self.assertEqual(headers.get('Content-Type'), 'baz/quux')
+        # SLO will provide a base value
+        override_etag = '; s3_etag=%s' % s3_etag.strip('"')
+        h = 'X-Object-Sysmeta-Container-Update-Override-Etag'
+        self.assertEqual(headers.get(h), override_etag)
 
     def test_object_multipart_upload_complete_weird_host_name(self):
         # This happens via boto signature v4
@@ -759,8 +777,7 @@ class TestSwift3MultiUpload(Swift3TestCase):
         ])
         _, _, put_headers = self.swift.calls_with_headers[-3]
         self.assertEqual(put_headers.get('X-Object-Meta-Foo'), 'bar')
-        self.assertEqual(put_headers.get('Content-Type'),
-                         'baz/quux;s3_etag=59adb24ef3cdbe0297f05b395827453f-1')
+        self.assertEqual(put_headers.get('Content-Type'), 'baz/quux')
 
     def test_object_multipart_upload_complete_double_zero_length_segment(self):
         segment_bucket = '/v1/AUTH_test/empty-bucket+segments'
@@ -818,12 +835,12 @@ class TestSwift3MultiUpload(Swift3TestCase):
         object_list = [{
             'name': 'object/X/1',
             'last_modified': self.last_modified,
-            'hash': '0000',
+            'hash': '0123456789abcdef0123456789abcdef',
             'bytes': '100',
         }, {
             'name': 'object/X/2',
             'last_modified': self.last_modified,
-            'hash': '0000',
+            'hash': 'fedcba9876543210fedcba9876543210',
             'bytes': '1',
         }, {
             'name': 'object/X/3',
@@ -845,11 +862,11 @@ class TestSwift3MultiUpload(Swift3TestCase):
         xml = '<CompleteMultipartUpload>' \
             '<Part>' \
             '<PartNumber>1</PartNumber>' \
-            '<ETag>0000</ETag>' \
+            '<ETag>0123456789abcdef0123456789abcdef</ETag>' \
             '</Part>' \
             '<Part>' \
             '<PartNumber>2</PartNumber>' \
-            '<ETag>0000</ETag>' \
+            '<ETag>fedcba9876543210fedcba9876543210</ETag>' \
             '</Part>' \
             '<Part>' \
             '<PartNumber>3</PartNumber>' \
@@ -864,6 +881,11 @@ class TestSwift3MultiUpload(Swift3TestCase):
                             body=xml)
         status, headers, body = self.call_swift3(req)
         self.assertEqual(status.split()[0], '200')
+        elem = fromstring(body, 'CompleteMultipartUploadResult')
+        self.assertNotIn('Etag', headers)
+        expected_etag = '"%s-3"' % hashlib.md5(''.join(
+            x['hash'] for x in object_list).decode('hex')).hexdigest()
+        self.assertEqual(elem.find('ETag').text, expected_etag)
 
         self.assertEqual(self.swift.calls, [
             ('HEAD', '/v1/AUTH_test/bucket'),
@@ -874,6 +896,12 @@ class TestSwift3MultiUpload(Swift3TestCase):
             ('DELETE', '/v1/AUTH_test/bucket+segments/object/X/3'),
             ('DELETE', '/v1/AUTH_test/bucket+segments/object/X'),
         ])
+
+        _, _, headers = self.swift.calls_with_headers[-3]
+        # SLO will provide a base value
+        override_etag = '; s3_etag=%s' % expected_etag.strip('"')
+        h = 'X-Object-Sysmeta-Container-Update-Override-Etag'
+        self.assertEqual(headers.get(h), override_etag)
 
     @s3acl(s3acl_only=True)
     def test_object_multipart_upload_complete_s3acl(self):
@@ -897,8 +925,7 @@ class TestSwift3MultiUpload(Swift3TestCase):
 
         _, _, headers = self.swift.calls_with_headers[-2]
         self.assertEqual(headers.get('X-Object-Meta-Foo'), 'bar')
-        self.assertEqual(headers.get('Content-Type'),
-                         'baz/quux;s3_etag=f1d3ff8443297732862df21dc4e57262-2')
+        self.assertEqual(headers.get('Content-Type'), 'baz/quux')
         self.assertEqual(tostring(ACLPublicRead(Owner('test:tester',
                                                       'test:tester')).elem()),
                          tostring(decode_acl('object', headers).elem()))
@@ -1010,7 +1037,7 @@ class TestSwift3MultiUpload(Swift3TestCase):
         self.assertFalse(body)
         self.assertIn('ETag', headers)
         self.assertIn('X-Amz-Mp-Parts-Count', headers)
-        self.assertEqual('"0002-2"', headers['ETag'])
+        self.assertEqual(s3_etag, headers['ETag'])
         self.assertEqual('2', headers['X-Amz-Mp-Parts-Count'])
 
     @s3acl
@@ -1644,7 +1671,8 @@ class TestSwift3MultiUpload(Swift3TestCase):
 
     def _test_no_body(self, use_content_length=False,
                       use_transfer_encoding=False, string_to_md5=''):
-        content_md5 = md5(string_to_md5).digest().encode('base64').strip()
+        raw_md5 = hashlib.md5(string_to_md5).digest()
+        content_md5 = raw_md5.encode('base64').strip()
         with UnreadableInput(self) as fake_input:
             req = Request.blank(
                 '/bucket/object?uploadId=X',

@@ -20,7 +20,7 @@ import time
 
 from swift.common import swob
 
-from swift3.middleware import Swift3Middleware
+from swift3.middleware import filter_factory
 from swift3.test.unit.helpers import FakeSwift
 from swift3.etree import fromstring
 from swift3.cfg import CONF
@@ -61,7 +61,7 @@ class Swift3TestCase(unittest.TestCase):
     def setUp(self):
         self.app = FakeApp()
         self.swift = self.app.swift
-        self.swift3 = Swift3Middleware(self.app, CONF)
+        self.swift3 = filter_factory({}, **CONF)(self.app)
 
         self.swift.register('HEAD', '/v1/AUTH_test',
                             swob.HTTPOk, {}, None)
@@ -75,9 +75,9 @@ class Swift3TestCase(unittest.TestCase):
                             swob.HTTPNoContent, {}, None)
 
         self.swift.register('GET', '/v1/AUTH_test/bucket/object',
-                            swob.HTTPOk, {'etag': '0000'}, "")
+                            swob.HTTPOk, {'etag': 'object etag'}, "")
         self.swift.register('PUT', '/v1/AUTH_test/bucket/object',
-                            swob.HTTPCreated, {'etag': '0000'}, None)
+                            swob.HTTPCreated, {'etag': 'object etag'}, None)
         self.swift.register('DELETE', '/v1/AUTH_test/bucket/object',
                             swob.HTTPNoContent, {}, None)
 

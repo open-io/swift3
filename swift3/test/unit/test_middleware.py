@@ -43,6 +43,54 @@ from swift3.s3_token_middleware import S3Token
 from swift3.cfg import CONF
 
 
+class TestListingMiddleware(Swift3TestCase):
+    def test_s3_etag_in_json(self):
+        # This translation happens all the time, even on normal swift requests
+        body_data = json.dumps([
+            {'name': 'obj1', 'hash': '0123456789abcdef0123456789abcdef'},
+            {'name': 'obj2', 'hash': 'swiftetag; s3_etag=mu-etag'},
+            {'name': 'obj2', 'hash': 'swiftetag; something=else'},
+            {'subdir': 'path/'},
+        ]).encode('ascii')
+        self.swift.register(
+            'GET', '/v1/a/c', swob.HTTPOk,
+            {'Content-Type': 'application/json; charset=UTF-8'},
+            body_data)
+
+        req = Request.blank('/v1/a/c')
+        status, headers, body = self.call_swift3(req)
+        self.assertEqual(json.loads(body.decode('ascii')), [
+            {'name': 'obj1', 'hash': '0123456789abcdef0123456789abcdef'},
+            {'name': 'obj2', 'hash': 'swiftetag', 's3_etag': '"mu-etag"'},
+            {'name': 'obj2', 'hash': 'swiftetag; something=else'},
+            {'subdir': 'path/'},
+        ])
+
+    def test_s3_etag_non_json(self):
+        self.swift.register(
+            'GET', '/v1/a/c', swob.HTTPOk,
+            {'Content-Type': 'application/json; charset=UTF-8'},
+            b'Not actually JSON')
+        req = Request.blank('/v1/a/c')
+        status, headers, body = self.call_swift3(req)
+        self.assertEqual(body, b'Not actually JSON')
+
+        # Yes JSON, but wrong content-type
+        body_data = json.dumps([
+            {'name': 'obj1', 'hash': '0123456789abcdef0123456789abcdef'},
+            {'name': 'obj2', 'hash': 'swiftetag; s3_etag=mu-etag'},
+            {'name': 'obj2', 'hash': 'swiftetag; something=else'},
+            {'subdir': 'path/'},
+        ]).encode('ascii')
+        self.swift.register(
+            'GET', '/v1/a/c', swob.HTTPOk,
+            {'Content-Type': 'text/plain; charset=UTF-8'},
+            body_data)
+        req = Request.blank('/v1/a/c')
+        status, headers, body = self.call_swift3(req)
+        self.assertEqual(body, body_data)
+
+
 class TestSwift3Middleware(Swift3TestCase):
     def setUp(self):
         super(TestSwift3Middleware, self).setUp()

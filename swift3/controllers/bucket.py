@@ -33,7 +33,7 @@ from swift3.response import HTTPOk, S3NotImplemented, InvalidArgument, \
     BucketAlreadyExists
 from swift3.cfg import CONF
 from swift3.utils import LOGGER, MULTIUPLOAD_SUFFIX, VERSIONING_SUFFIX, \
-    extract_s3_etag, log_s3api_command
+    log_s3api_command
 
 MAX_PUT_BUCKET_BODY_SIZE = 10240
 
@@ -310,10 +310,13 @@ class BucketController(Controller):
                         o['name'].encode('utf-8')
                 SubElement(contents, 'LastModified').text = \
                     o['last_modified'][:-3] + 'Z'
-                if 's3_etag' in o.get('content_type', ''):
-                    _, o['hash'] = extract_s3_etag(o['content_type'])
                 if contents.tag != 'DeleteMarker':
-                    SubElement(contents, 'ETag').text = '"%s"' % o['hash']
+                    if 's3_etag' in o:
+                        # New-enough MUs are already in the right format
+                        etag = o['s3_etag']
+                    else:
+                        etag = '"%s"' % o['hash']
+                    SubElement(contents, 'ETag').text = etag
                     SubElement(contents, 'Size').text = str(o['bytes'])
                 if fetch_owner or not is_v2:
                     owner = SubElement(contents, 'Owner')
