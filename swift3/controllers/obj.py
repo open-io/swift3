@@ -18,7 +18,7 @@ from swift.common.request_helpers import update_etag_is_at_header
 from swift.common.middleware.versioned_writes import \
     DELETE_MARKER_CONTENT_TYPE
 from swift.common.swob import Range, content_range_header_value
-from swift.common.utils import public
+from swift.common.utils import public, list_from_csv
 
 from swift3.utils import S3Timestamp, VERSIONING_SUFFIX, \
     versioned_object_name, log_s3api_command, sysmeta_header
@@ -70,8 +70,19 @@ class ObjectController(Controller):
         return resp
 
     def GETorHEAD(self, req):
-        if any(match_header in req.headers
-               for match_header in ('if-match', 'if-none-match')):
+        had_match = False
+        for match_header in ('if-match', 'if-none-match'):
+            if match_header not in req.headers:
+                continue
+            had_match = True
+            for value in list_from_csv(req.headers[match_header]):
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]
+                if value.endswith('-N'):
+                    # Deal with fake S3-like etags for SLOs uploaded via Swift
+                    req.headers[match_header] += ', ' + value[:-2]
+
+        if had_match:
             # Update where to look
             update_etag_is_at_header(req, sysmeta_header('object', 'etag'))
 

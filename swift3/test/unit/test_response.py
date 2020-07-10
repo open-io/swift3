@@ -28,7 +28,10 @@ class TestRequest(unittest.TestCase):
                                          'Etag': 'theetag'})
                 s3resp = S3Response.from_swift_resp(resp)
                 self.assertEqual(expected, s3resp.is_slo)
-                self.assertEqual('"theetag"', s3resp.headers['ETag'])
+                if s3resp.is_slo:
+                    self.assertEqual('"theetag-N"', s3resp.headers['ETag'])
+                else:
+                    self.assertEqual('"theetag"', s3resp.headers['ETag'])
 
 
 if __name__ == '__main__':

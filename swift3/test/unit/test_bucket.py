@@ -37,6 +37,8 @@ class TestSwift3Bucket(Swift3TestCase):
                         ('lily', '2011-01-05T02:19:14.275290', '0', '3909'),
                         ('mu', '2011-01-05T02:19:14.275290',
                          'md5-of-the-manifest; s3_etag=0', '3909'),
+                        ('slo', '2011-01-05T02:19:14.275290',
+                         'md5-of-the-manifest', '3909'),
                         ('with space', '2011-01-05T02:19:14.275290', 0, 390),
                         ('with%20space', '2011-01-05T02:19:14.275290', 0, 390))
 
@@ -44,6 +46,7 @@ class TestSwift3Bucket(Swift3TestCase):
             {'name': str(item[0]), 'last_modified': str(item[1]),
              'hash': str(item[2]), 'bytes': str(item[3])}
             for item in self.objects]
+        objects[4]['slo_etag'] = '"0"'
         object_list = json.dumps(objects)
 
         self.prefixes = ['rose', 'viola', 'lily']
@@ -155,16 +158,14 @@ class TestSwift3Bucket(Swift3TestCase):
 
         objects = elem.iterchildren('Contents')
 
-        names = []
+        items = []
         for o in objects:
-            names.append(o.find('./Key').text)
+            items.append((o.find('./Key').text, o.find('./ETag').text))
             self.assertEqual('2011-01-05T02:19:14.275Z',
                              o.find('./LastModified').text)
-            self.assertEqual('"0"', o.find('./ETag').text)
-
-        self.assertEqual(len(names), len(self.objects))
-        for i in self.objects:
-            self.assertTrue(i[0] in names)
+        self.assertEqual(items, [
+            (i[0].encode('utf-8'), '"0-N"' if i[0] == 'slo' else '"0"')
+            for i in self.objects])
 
     def test_bucket_GET_subdir(self):
         bucket_name = 'junk-subdir'
@@ -512,7 +513,8 @@ class TestSwift3Bucket(Swift3TestCase):
         self.assertEqual([v.find('./LastModified').text for v in versions],
                          [v[1][:-3] + 'Z' for v in objects])
         self.assertEqual([v.find('./ETag').text for v in versions],
-                         ['"%s"' % v[2] for v in objects])
+                         ['"0-N"' if v[0] == 'slo' else '"0"'
+                          for v in objects])
         self.assertEqual([v.find('./Size').text for v in versions],
                          [str(v[3]) for v in objects])
         self.assertEqual([v.find('./Owner/ID').text for v in versions],
@@ -640,7 +642,7 @@ class TestSwift3Bucket(Swift3TestCase):
         self.assertEqual(len(delete_markers), 0)
         versions = elem.findall('./Version')
         self.assertEqual(len(versions), len(self.objects) - 3)
-        self.assertEqual(versions[0].find('./Key').text, 'viola')
+        self.assertEqual(versions[0].find('./Key').text, 'slo')
         self.assertEqual(versions[0].find('./IsLatest').text, 'true')
         self.assertEqual(versions[0].find('./VersionId').text, 'null')
 
