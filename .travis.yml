@@ -21,7 +21,6 @@ env:
     - TEST_SUITE=keystone SWIFT_BRANCH=stable/queens
     - TEST_SUITE=s3acl SWIFT_BRANCH=stable/queens
     - TEST_SUITE=tempauth SWIFT_BRANCH=stable/queens
-    - TEST_SUITE=tempauth SWIFT_BRANCH=stable/pike
 
 install:
   - env
@@ -35,7 +34,8 @@ install:
   - pip install --upgrade -r requirements.txt
   - cd ..
   - cd swift3
-  - pip install --upgrade -r requirements.txt
+  - grep -v swift requirements.txt > deps-requirements.txt
+  - pip install --upgrade -r deps-requirements.txt
   - pip install --upgrade -r test-requirements.txt
 
 script:
