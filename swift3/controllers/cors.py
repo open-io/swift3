@@ -17,7 +17,8 @@ import re
 
 from swift.common.utils import public
 
-from swift3.controllers.base import Controller, bucket_operation
+from swift3.controllers.base import Controller, bucket_operation, \
+    check_container_existence
 from swift3.etree import fromstring, DocumentInvalid, XMLSyntaxError
 from swift3.response import HTTPOk, HTTPNoContent, MalformedXML, \
     NoSuchCORSConfiguration, CORSInvalidRequest
@@ -157,6 +158,7 @@ class CorsController(Controller):
 
     @public
     @bucket_operation
+    @check_container_existence
     def GET(self, req):  # pylint: disable=invalid-name
         """
         Handles GET Bucket CORS.
@@ -170,6 +172,7 @@ class CorsController(Controller):
 
     @public
     @bucket_operation
+    @check_container_existence
     def PUT(self, req):  # pylint: disable=invalid-name
         """
         Handles PUT Bucket CORS.
@@ -194,6 +197,7 @@ class CorsController(Controller):
 
     @public
     @bucket_operation
+    @check_container_existence
     def DELETE(self, req):  # pylint: disable=invalid-name
         """
         Handles DELETE Bucket CORS.

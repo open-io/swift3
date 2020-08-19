@@ -16,7 +16,7 @@
 import unittest
 from xml.etree import ElementTree as ET
 
-from swift.common.swob import Request, HTTPNoContent
+from swift.common.swob import Request, HTTPNoContent, HTTPNotFound
 
 from swift3.cfg import CONF
 from swift3.test.unit import Swift3TestCase
@@ -60,6 +60,10 @@ class TestSwift3Cors(Swift3TestCase):
         # Trick to load a dummy bucket DB
         CONF.bucket_db_enabled = True
         super(TestSwift3Cors, self).setUp()
+        self.swift.register('HEAD', '/v1/AUTH_test/missing-bucket',
+                            HTTPNotFound, {}, None)
+        self.swift.register('HEAD', '/v1/AUTH_test/test-cors',
+                            HTTPNoContent, {}, None)
         self.swift3.bucket_db.set_owner('test-cors', 'AUTH_test')
 
     def _cors_GET(self, path):
@@ -82,6 +86,15 @@ class TestSwift3Cors(Swift3TestCase):
         status, headers, body = self.call_swift3(req)
         return status, headers, body
 
+    def _cors_DELETE(self, path):
+        req = Request.blank('%s?cors' % path,
+                            environ={'REQUEST_METHOD': 'DELETE'},
+                            headers={'Authorization': 'AWS test:tester:hmac',
+                                     'Date': self.get_date_header()})
+
+        status, headers, body = self.call_swift3(req)
+        return status, headers, body
+
     def _options(self, path, headers=None):
         hdrs = {'Authorization': 'AWS test:tester:hmac',
                 'Date': self.get_date_header()}
@@ -92,6 +105,23 @@ class TestSwift3Cors(Swift3TestCase):
                             headers=hdrs)
         status, headers, body = self.call_swift3(req)
         return status, headers, body
+
+    def test_GET_missing_bucket(self):
+        status, _, body = self._cors_GET('/missing-bucket')
+        self.assertEqual('404 Not Found', status)
+        self.assertEqual('NoSuchBucket', self._get_error_code(body))
+
+    def test_PUT_missing_bucket(self):
+        rule = RULE.copy()
+
+        status, _, body = self._cors_PUT('/missing-bucket', cors=rule)
+        self.assertEqual('404 Not Found', status)
+        self.assertEqual('NoSuchBucket', self._get_error_code(body))
+
+    def test_DELETE_missing_bucket(self):
+        status, _, body = self._cors_DELETE('/missing-bucket')
+        self.assertEqual('404 Not Found', status)
+        self.assertEqual('NoSuchBucket', self._get_error_code(body))
 
     def test_missing_cors(self):
         self.swift.register('HEAD', '/v1/AUTH_test/test-cors',

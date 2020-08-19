@@ -546,6 +546,8 @@ class TestSwift3Middleware(Swift3TestCase):
         self._test_unsupported_resource('website')
 
     def test_cors(self):
+        self.swift.register('HEAD', '/v1/AUTH_X',
+                            swob.HTTPNoContent, {}, None)
         self.swift.register('HEAD', '/v1/AUTH_X/bucket',
                             swob.HTTPNoContent, {}, None)
         req = Request.blank('/bucket?cors',
