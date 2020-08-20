@@ -48,8 +48,9 @@ import re
 
 from hashlib import md5
 
+from swift.common.request_helpers import update_etag_is_at_header
 from swift.common.swob import Range
-from swift.common.utils import json, public, close_if_possible
+from swift.common.utils import json, public, close_if_possible, list_from_csv
 from swift.common.db import utf8encode
 
 from six.moves.urllib.parse import urlparse  # pylint: disable=F0401
@@ -214,6 +215,22 @@ class PartController(Controller):
         """
         part_number = self.parse_part_number(req)
 
+        had_match = False
+        for match_header in ('if-match', 'if-none-match'):
+            if match_header not in req.headers:
+                continue
+            had_match = True
+            for value in list_from_csv(req.headers[match_header]):
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]
+                if value.endswith('-N'):
+                    # Deal with fake S3-like etags for SLOs uploaded via Swift
+                    req.headers[match_header] += ', ' + value[:-2]
+
+        if had_match:
+            # Update where to look
+            update_etag_is_at_header(req, sysmeta_header('object', 'etag'))
+
         # Get the list of parts. Must be raw to get all response headers.
         slo_resp = req.get_response(
             self.app, 'GET', req.container_name, req.object_name,
@@ -244,6 +261,10 @@ class PartController(Controller):
         # or it will rise issues in swift3/requests when merging both
         req.container_name = req.container_name.encode('utf-8')
         req.object_name = req.object_name.encode('utf8')
+        # The etag check was performed with the manifest
+        if had_match:
+            for match_header in ('if-match', 'if-none-match'):
+                req.headers.pop(match_header, None)
         resp = req.get_response(self.app)
 
         # Replace status
