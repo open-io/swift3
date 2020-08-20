@@ -222,12 +222,13 @@ class PartController(Controller):
         # Check if the object is really a SLO. If not, and user asked
         # for the first part, do a regular request.
         if 'X-Static-Large-Object' not in slo_resp.sw_headers:
-            close_if_possible(slo_resp.app_iter)
             if part_number == 1:
-                # Clear body
-                slo_resp.body = ''
+                if slo_resp.is_success and req.method == 'HEAD':
+                    # Clear body
+                    slo_resp.body = ''
                 return slo_resp
             else:
+                close_if_possible(slo_resp.app_iter)
                 raise InvalidRange()
 
         # Locate the part
@@ -245,8 +246,10 @@ class PartController(Controller):
         req.object_name = req.object_name.encode('utf8')
         resp = req.get_response(self.app)
 
-        # Clear body
-        slo_resp.body = ''
+        # Replace status
+        slo_resp.status = resp.status
+        # Replace body
+        slo_resp.app_iter = resp.app_iter
         # Update with the size of the part
         slo_resp.headers['Content-Length'] = \
             resp.headers.get('Content-Length', 0)
