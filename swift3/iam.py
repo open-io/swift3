@@ -256,8 +256,8 @@ class IamRulesMatcher(object):
         for num, statement in enumerate(self._rules['Statement']):
             # Statement ID is optional
             sid = statement.get('Sid', 'statement-id-%d' % num)
-            self.logger.info("===> Checking statement %s (%s)",
-                             sid, statement['Effect'])
+            self.logger.debug("===> Checking statement %s (%s)",
+                              sid, statement['Effect'])
             if statement['Effect'] != effect:
                 continue
 
@@ -272,8 +272,8 @@ class IamRulesMatcher(object):
                         # Found a wildcard match
                         break
             else:
-                self.logger.info('Skipping %s, action %s is not in the list',
-                                 sid, action)
+                self.logger.debug('Skipping %s, action %s is not in the list',
+                                  sid, action)
                 continue
 
             for resource_str in statement['Resource']:
@@ -282,25 +282,25 @@ class IamRulesMatcher(object):
                 # check wildcards before everything else
                 if (rule_res.arn == ARN_WILDCARD_BUCKET and
                         self.check_condition(statement, req)):
-                    self.logger.info('%s: matches everything', sid)
+                    self.logger.debug('%s: matches everything', sid)
                     return True, sid
 
                 # Ensure the requested and the current resource are of the
                 # same type. The specification says that a wildcard in the
                 # bucket name should not match objects (stop at first slash).
                 if rule_res.type != req_res.type:
-                    self.logger.info('%s: skip, resource types do not match',
-                                     sid)
+                    self.logger.debug('%s: skip, resource types do not match',
+                                      sid)
                     continue
 
                 # Do a case-sensitive match between the requested resource
                 # and the resource of the current rule.
                 if (fnmatchcase(req_res.arn, rule_res.arn) and
                         self.check_condition(statement, req)):
-                    self.logger.info('%s: wildcard or exact match', sid)
+                    self.logger.debug('%s: wildcard or exact match', sid)
                     return True, sid
 
-        self.logger.info('No %s match found', effect)
+        self.logger.debug('No %s match found', effect)
         return False, None
 
     def match_explicit_deny(self, action, resource, req):
@@ -343,9 +343,9 @@ def check_iam_access(action):
             else:
                 rsc = None
 
-            effect, _sid = matcher(rsc, action, req)
-            # TODO(IAM): log sid, the ID of the rule statement which matched
+            effect, sid = matcher(rsc, action, req)
             if effect != EXPLICIT_ALLOW:
+                matcher.logger.info("Request denied by IAM (sid=%s)", sid)
                 raise AccessDenied()
 
             return func(*args, **kwargs)
