@@ -628,6 +628,10 @@ class UploadController(Controller):
             'delimiter': '/',
         }
 
+        # Force the master to be sure to fetch all uploaded parts
+        req.environ.setdefault('oio.query', {})
+        req.environ['oio.query']['force_master'] = True
+
         resp = req.get_response(self.app, 'GET', container, '', query=query)
 
         #  Iterate over the segment objects and delete them individually
@@ -668,6 +672,10 @@ class UploadController(Controller):
             'prefix': '%s/%s/' % (req.object_name, upload_id),
             'delimiter': '/'
         }
+
+        # Force the master to be sure to fetch all uploaded parts
+        req.environ.setdefault('oio.query', {})
+        req.environ['oio.query']['force_master'] = True
 
         container = req.container_name + MULTIUPLOAD_SUFFIX
         resp = req.get_response(self.app, 'GET', container, '', query=query)
