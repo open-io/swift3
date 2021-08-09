@@ -438,6 +438,8 @@ class StaticIamMiddleware(IamMiddleware):
                 self.rules = json.load(rules_fd)
 
     def load_rules_for_user(self, account, user_id):
+        if not user_id:
+            return None
         rules = self.rules.get(user_id)
         return rules
 
