@@ -34,10 +34,12 @@ EXPLICIT_ALLOW = "ALLOW"
 EXPLICIT_DENY = "DENY"
 RESOURCE_VERSION = "2012-10-17"
 
-# Rule effect: allow
-RE_ALLOW = "Allow"
+# Actually "Allow" and "Deny" in all examples
+# but we will make them case-insensitive.
+# Rule effect: allow.
+RE_ALLOW = "allow"
 # Rule effect: deny
-RE_DENY = "Deny"
+RE_DENY = "deny"
 
 # Resource type: object
 RT_OBJECT = "Object"
@@ -206,8 +208,8 @@ class IamRulesMatcher(object):
         :param statement: the statement dict using the condition
         :param req: the current request
         """
-        cond = statement.get('Condition', {})
-        effect = statement['Effect']
+        cond = statement.get('Condition') or dict()
+        effect = statement['Effect'].lower()  # case insensitive comparison
         for opname, operands in cond.items():
             if IamConditionOp.get(opname, None) is None:
                 if effect == RE_ALLOW:
@@ -258,7 +260,7 @@ class IamRulesMatcher(object):
             sid = statement.get('Sid', 'statement-id-%d' % num)
             self.logger.debug("===> Checking statement %s (%s)",
                               sid, statement['Effect'])
-            if statement['Effect'] != effect:
+            if statement['Effect'].lower() != effect:
                 continue
 
             # Check Action
