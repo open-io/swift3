@@ -68,25 +68,28 @@
     </choice>
   </define>
   <define name="Filter">
-    <interleave>
-      <optional>
-        <element name="Prefix">
-          <data type="string"/>
-        </element>
-      </optional>
-      <zeroOrMore>
-        <element name="Tag">
-          <interleave>
-            <element name="Key">
+    <choice>
+      <element name="Prefix">
+        <data type="string"/>
+      </element>
+      <element name="Tag">
+        <ref name="Tag"/>
+      </element>
+      <element name="And">
+        <interleave>
+          <optional>
+            <element name="Prefix">
               <data type="string"/>
             </element>
-            <element name="Value">
-              <data type="string"/>
+          </optional>
+          <oneOrMore>
+            <element name="Tag">
+              <ref name="Tag"/>
             </element>
-          </interleave>
-        </element>
-      </zeroOrMore>
-    </interleave>
+          </oneOrMore>
+        </interleave>
+      </element>
+    </choice>
   </define>
   <define name="NoncurrentVersionTransition">
     <interleave>
@@ -95,6 +98,16 @@
       </element>
       <element name="StorageClass">
         <ref name="StorageClass"/>
+      </element>
+    </interleave>
+  </define>
+  <define name="Tag">
+    <interleave>
+      <element name="Key">
+        <data type="string"/>
+      </element>
+      <element name="Value">
+        <data type="string"/>
       </element>
     </interleave>
   </define>

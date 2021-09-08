@@ -24,15 +24,20 @@ Expiration =
   element ExpiredObjectDeleteMarker { xsd:boolean }
 
 Filter =
-  element Prefix { xsd:string }? &
-  element Tag {
-    element Key { xsd:string } &
-    element Value { xsd:string }
-  }*
+  element Prefix { xsd:string } |
+  element Tag { Tag } |
+  element And {
+      element Prefix { xsd:string }? &
+      element Tag { Tag }+
+  }
 
 NoncurrentVersionTransition =
   element NoncurrentDays { xsd:nonNegativeInteger } &
   element StorageClass { StorageClass }
+
+Tag =
+  element Key { xsd:string } &
+  element Value { xsd:string }
 
 Transition =
   Expiration &
