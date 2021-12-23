@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
 from fnmatch import fnmatchcase
 from functools import wraps
+from functools32 import lru_cache
 
-from swift.common.utils import config_auto_int_value, get_logger, LRUCache
+from swift.common.utils import config_auto_int_value, get_logger
 
 from swift3.exception import IAMException
 from swift3.response import AccessDenied
@@ -355,6 +357,30 @@ def check_iam_access(action):
     return real_check_iam_access
 
 
+def tlru_cache(maxtime=30, maxsize=1000):
+    """
+    Least-recently-used cache decorator with time-based cache invalidation.
+
+    Due to the technique used, an entry can expire before the TTL,
+    but never after.
+    """
+    def tlru_cache_decorator(func):
+        @lru_cache(maxsize=maxsize)
+        def salted_func(__salt, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        @wraps(func)
+        def tlru_cache_wrapper(*args, **kwargs):
+            # Generate an extra argument, which will be the same for
+            # maxtime seconds. After maxtime seconds, the argument changes,
+            # and thus triggers a cache miss.
+            return salted_func(int(time.time() / maxtime), *args, **kwargs)
+
+        return tlru_cache_wrapper
+
+    return tlru_cache_decorator
+
+
 class IamMiddleware(object):
     """
     Base class for IAM implementations.
@@ -368,8 +394,13 @@ class IamMiddleware(object):
         self.connection = conf.get('connection')
         maxsize = config_auto_int_value(conf.get('cache_size'), 1000)
         maxtime = config_auto_int_value(conf.get('cache_ttl'), 30)
-        self._load_rules_matcher = LRUCache(maxsize=maxsize, maxtime=maxtime)(
-            self._build_rules_matcher)
+        if maxsize > 0:
+            if maxtime <= 0:
+                maxtime = float('inf')
+            self._load_rules_matcher = tlru_cache(
+                maxsize=maxsize, maxtime=maxtime)(self._build_rules_matcher)
+        else:
+            self._load_rules_matcher = self._build_rules_matcher
 
     def __call__(self, env, start_response):
         # Put the rules callback in the request environment so middlewares
